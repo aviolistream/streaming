@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<script>
+  // Applique le thème enregistré avant le rendu, pour éviter le flash et le partager sur tout le site
+  (function(){
+    try{
+      var t = localStorage.getItem('avioli-theme');
+      if(t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    }catch(e){}
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Netflix Premium — AvioliStream</title>
+<meta name="description" content="Netflix Premium, 1 écran 4K UHD, profil nominatif, 2 appareils non simultanés dès 2 mois. Paiement Mobile Money sécurisé.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#FF3131">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
+<style>
+  :root{
+    --red:#FF3131;
+    --prime-blue:#1699FF;
+    --slate:#436371;
+    --bg:#FFFFFF;
+    --bg-soft:#F6F7F8;
+    --surface:#FFFFFF;
+    --line:#E7E9EC;
+    --text:#171A1E;
+    --muted:#63697A;
+    --accent:#E50914;
+    --radius:14px;
+    --font-display:'Sora',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  html[data-theme="dark"]{
+    --bg:#0F1113;
+    --bg-soft:#16181B;
+    --surface:#1B1E22;
+    --line:#2A2D32;
+    --text:#F1F1F2;
+    --muted:#9CA1AC;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    transition:background .2s ease, color .2s ease;
+    position:relative;
+  }
+  /* Arrière-plan ambiant : halos rouge (Netflix) / bleu (Prime Video) + grille fine, fixes derrière le contenu */
+  body::before{
+    content:"";
+    position:fixed; inset:0; z-index:-2; pointer-events:none;
+    background:
+      radial-gradient(1000px 720px at 0% -12%, rgba(229,9,20,0.30), transparent 58%),
+      radial-gradient(1000px 760px at 100% -4%, rgba(22,153,255,0.28), transparent 58%),
+      radial-gradient(820px 600px at 50% 108%, rgba(67,99,113,0.18), transparent 60%);
+    transition:opacity .2s ease;
+  }
+  body::after{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:.45;
+    mask-image:radial-gradient(120% 85% at 50% 0%, #000 40%, transparent 82%);
+    -webkit-mask-image:radial-gradient(120% 85% at 50% 0%, #000 40%, transparent 82%);
+  }
+  html[data-theme="dark"] body::before{
+    background:
+      radial-gradient(1000px 720px at 0% -12%, rgba(229,9,20,0.42), transparent 58%),
+      radial-gradient(1000px 760px at 100% -4%, rgba(22,153,255,0.38), transparent 58%),
+      radial-gradient(820px 600px at 50% 108%, rgba(67,99,113,0.26), transparent 60%);
+  }
+  html[data-theme="dark"] body::after{ opacity:.6; }
+  /* Barre de marque en dégradé Netflix → Prime, fixe en haut de viewport */
+  .brand-strip{
+    position:fixed; top:0; left:0; right:0; height:3px; z-index:60; pointer-events:none;
+    background:linear-gradient(90deg, var(--red) 0%, var(--red-dark, var(--red)) 30%, var(--prime-blue) 100%);
+  }
+  a{color:inherit; text-decoration:none;}
+  img{display:block; max-width:100%;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
+  :focus-visible{outline:2px solid var(--red); outline-offset:3px;}
+
+  header{position:sticky; top:0; z-index:50; background:color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%); border-bottom:1px solid var(--line);}
+  .header-row{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; padding:14px 24px;}
+  .header-left{display:flex; align-items:center; gap:22px;}
+  .theme-toggle{width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--bg-soft); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; flex-shrink:0;}
+  .logo{font-family:var(--font-display); font-weight:800; font-size:1.2rem; letter-spacing:0.01em; text-align:center;}
+  .header-cta{display:flex; align-items:center; justify-content:flex-end; gap:26px;}
+  .nav-links{display:flex; align-items:center; gap:22px; font-size:0.88rem; color:var(--muted); white-space:nowrap;}
+  .nav-links a:hover{color:var(--text);}
+  @media (max-width:860px){
+    .nav-links{display:none;}
+    .header-row{grid-template-columns:auto 1fr auto; gap:10px; padding:12px 16px;}
+    .header-left{justify-content:flex-start;}
+    .logo{font-size:1.05rem;}
+  }
+  .install-btn{width:34px; height:34px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; border:none; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;}
+  .install-btn:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(255,49,49,0.3);}
+  .install-btn svg{width:15px; height:15px;}
+
+  .ticker-bar{background:var(--bg-soft); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:8px 0;}
+  .ticker-track{display:inline-flex; gap:44px; animation:scroll-left 30s linear infinite; font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);}
+  .ticker-track span b{color:var(--red); font-weight:500;}
+  @keyframes scroll-left{from{transform:translateX(0);} to{transform:translateX(-50%);}}
+  @media (prefers-reduced-motion: reduce){ .ticker-track{animation:none;} }
+
+  .breadcrumb{padding:18px 24px 0; font-size:0.82rem; color:var(--muted);}
+  .breadcrumb a:hover{color:var(--text);}
+
+  .product{padding:28px 24px 64px;}
+  .product-grid{display:grid; grid-template-columns:1.1fr 1fr; gap:48px; align-items:start;}
+  @media (max-width:860px){ .product-grid{grid-template-columns:1fr; gap:32px;} }
+
+  .product-visual{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:20px;
+    padding:40px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:20px; text-align:center; position:relative; overflow:hidden;
+  }
+  .product-visual::before{
+    content:""; position:absolute; top:0; left:20px; right:20px; height:3px;
+    background:var(--accent); box-shadow:0 0 20px 2px var(--accent);
+  }
+  .product-visual img{width:72px; height:72px; border-radius:18px;}
+  .product-visual .plan-name{font-family:var(--font-display); font-weight:800; font-size:1.8rem;}
+  .product-visual .plat-name{font-family:var(--font-mono); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted);}
+  .label{font-size:0.78rem; color:var(--muted); margin-top:4px;}
+
+  .product-info h1{font-family:var(--font-display); font-weight:800; font-size:1.9rem; margin-bottom:10px; line-height:1.15;}
+  .product-info .tagline{color:var(--muted); font-size:1rem; margin-bottom:24px;}
+
+  .duration-select{margin-bottom:20px;}
+  .field-label{display:block; font-size:0.82rem; font-weight:600; color:var(--muted); margin-bottom:8px;}
+  select, input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:0.95rem;
+  }
+  select:focus, input:focus{outline:2px solid var(--accent); outline-offset:1px;}
+
+  .price-box{
+    display:flex; align-items:baseline; gap:8px; padding:18px 0; margin-bottom:24px;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .price-box .amount{font-family:var(--font-mono); font-weight:700; font-size:2rem;}
+  .price-box .unit{font-family:var(--font-mono); font-size:0.85rem; color:var(--muted);}
+
+  .order-form{display:flex; flex-direction:column; gap:16px;}
+  .form-row{display:grid; grid-template-columns:1fr; gap:16px;}
+  .whatsapp-row{display:grid; grid-template-columns:110px 1fr; gap:8px;}
+
+  .btn-pay{
+    font-family:var(--font-body); font-weight:700; font-size:1rem;
+    padding:15px 26px; border-radius:11px; border:none; cursor:pointer;
+    background:var(--accent); color:#fff; margin-top:6px;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-pay:hover{transform:translateY(-2px); box-shadow:0 10px 22px -6px var(--accent);}
+  .btn-pay:disabled{opacity:.55; cursor:not-allowed; transform:none; box-shadow:none;}
+
+  .status-banner{
+    display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:10px;
+    font-size:0.88rem; line-height:1.5; margin-top:4px;
+  }
+  .status-banner.success{background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); color:#22c55e;}
+  .status-banner.pending{background:rgba(255,49,49,0.08); border:1px solid rgba(255,49,49,0.25); color:var(--muted);}
+  .status-banner.failed{background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444;}
+
+  .trust-note{display:flex; align-items:center; gap:8px; color:var(--muted); font-size:0.8rem; margin-top:14px;}
+
+  .desc-block{margin-top:28px; padding-top:24px; border-top:1px solid var(--line);}
+  .desc-block h3{font-family:var(--font-display); font-size:1rem; margin-bottom:8px;}
+  .desc-block p{color:var(--muted); font-size:0.9rem;}
+
+  footer{border-top:1px solid var(--line); padding:44px 24px 24px;}
+  .footer-row{display:flex; justify-content:space-between; flex-wrap:wrap; gap:28px; margin-bottom:26px;}
+  .footer-col p.label{font-family:var(--font-mono); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted); margin-bottom:10px;}
+  .footer-col a{display:block; color:var(--muted); font-size:0.88rem; margin-bottom:6px;}
+  .footer-col a:hover{color:var(--text);}
+  .footer-bottom{color:var(--muted); font-size:0.8rem; padding-top:18px; border-top:1px solid var(--line);}
+</style>
+</head>
+<body>
+<div class="brand-strip"></div>
+
+<header>
+  <div class="header-row">
+    <div class="header-left">
+      <button class="theme-toggle" id="themeToggle" aria-label="Changer le thème">☀️</button>
+    </div>
+    <div class="logo">Avioli<span style="color:var(--red);">Stream</span></div>
+    <div class="header-cta">
+      <nav class="nav-links">
+        <a href="index.html#catalogue">Services</a>
+        <a href="index.html#comment-ca-marche">Comment ça marche</a>
+        <a href="index.html#pourquoi-nous">Pourquoi nous</a>
+        <a href="index.html#faq">FAQ</a>
+      </nav>
+      <button class="install-btn" id="installBtn" aria-label="Installer l'application" title="Installer l'application">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v12"/>
+          <path d="M7 10l5 5 5-5"/>
+          <path d="M4 19h16"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="ticker-bar">
+    <div class="ticker-track">
+      <span>Netflix Standard <b>1 999 FCFA</b>/mois</span>
+      <span>Netflix Premium <b>2 599 FCFA</b>/mois</span>
+      <span>Prime Video Standard <b>1 099 FCFA</b>/mois</span>
+      <span>Prime Video Premium <b>1 999 FCFA</b>/mois</span>
+      <span>Prime Video Global <b>3 099 FCFA</b>/mois</span>
+      <span>Paiement MTN MoMo · Moov Money · Wave</span>
+      <span>Netflix Standard <b>1 999 FCFA</b>/mois</span>
+      <span>Netflix Premium <b>2 599 FCFA</b>/mois</span>
+      <span>Prime Video Standard <b>1 099 FCFA</b>/mois</span>
+      <span>Prime Video Premium <b>1 999 FCFA</b>/mois</span>
+      <span>Prime Video Global <b>3 099 FCFA</b>/mois</span>
+      <span>Paiement MTN MoMo · Moov Money · Wave</span>
+    </div>
+  </div>
+</header>
+
+<div class="breadcrumb wrap">
+  <a href="index.html">Accueil</a> / <a href="index.html#catalogue">Netflix</a> / Premium
+</div>
+
+<section class="product">
+  <div class="wrap product-grid">
+    <div class="product-visual">
+      <img src="data:image/png;base64,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" alt="Netflix">
+      <div class="plat-name">Netflix</div>
+      <div class="plan-name">Premium</div>
+      <div>
+        <div class="label">2 écrans · Qualité 4K UHD</div>
+      </div>
+    </div>
+
+    <div class="product-info">
+      <h1>Netflix Premium</h1>
+      <p class="tagline">1 écran 4K UHD, profil nominatif, 2 appareils non simultanés dès 2 mois.</p>
+
+      <div class="duration-select">
+        <label class="field-label" for="duration">Durée de l'abonnement</label>
+        <select id="duration">
+          <option value="1" data-price="2599">1 mois — 2 599 FCFA</option>
+          <option value="2" data-price="4499">2 mois — 4 499 FCFA</option>
+          <option value="3" data-price="6499">3 mois — 6 499 FCFA</option>
+        </select>
+      </div>
+
+      <div class="price-box">
+        <span class="amount" id="priceAmount">2 599</span>
+        <span class="unit">FCFA · <span id="priceDuration">1 mois</span></span>
+      </div>
+
+      <form class="order-form" id="orderForm">
+        <div class="form-row">
+          <div>
+            <label class="field-label" for="firstName">Prénom</label>
+            <input type="text" id="firstName" name="firstName" required placeholder="Votre prénom">
+          </div>
+          <div>
+            <label class="field-label" for="email">Adresse email</label>
+            <input type="email" id="email" name="email" required placeholder="vous@exemple.com">
+          </div>
+          <div>
+            <label class="field-label" for="whatsapp">Numéro WhatsApp</label>
+            <div class="whatsapp-row">
+              <select id="countryCode" name="countryCode" aria-label="Indicatif pays">
+                <option value="+229" data-iso="bj">🇧🇯 +229</option>
+                <option value="+228" data-iso="tg">🇹🇬 +228</option>
+                <option value="+225" data-iso="ci">🇨🇮 +225</option>
+                <option value="+221" data-iso="sn">🇸🇳 +221</option>
+                <option value="+223" data-iso="ml">🇲🇱 +223</option>
+                <option value="+227" data-iso="ne">🇳🇪 +227</option>
+                <option value="+224" data-iso="gn">🇬🇳 +224</option>
+              </select>
+              <input type="tel" id="whatsapp" name="whatsapp" required placeholder="Numéro sans indicatif">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-pay">Payer avec Mobile Money</button>
+        <div class="trust-note">MTN MoMo · Moov Money · Wave — paiement sécurisé FedaPay</div>
+      </form>
+
+      <div class="desc-block">
+        <h3>Détails de la formule</h3>
+        <p>1 écran 4K UHD, profil nominatif, 2 appareils non simultanés dès 2 mois.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="footer-row">
+      <div>
+        <div class="logo" style="margin-bottom:12px;">Avioli<span style="color:var(--red);">Stream</span></div>
+        <p style="color:var(--muted); font-size:0.88rem; max-width:280px;">Abonnements Netflix et Prime Video, prix fixes en FCFA, paiement Mobile Money sécurisé.</p>
+      </div>
+      <div class="footer-col">
+        <p class="label">Services</p>
+        <a href="index.html#catalogue">Netflix</a>
+        <a href="index.html#catalogue">Prime Video</a>
+      </div>
+      <div class="footer-col">
+        <p class="label">Support</p>
+        <a href="index.html#faq">FAQ</a>
+        <a href="https://wa.me/22995265358" target="_blank" rel="noopener">Contact</a>
+      </div>
+    </div>
+    <div class="footer-bottom">© AvioliStream. Tous droits réservés.</div>
+  </div>
+</footer>
+
+<script>
+  const toggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  let current = root.getAttribute('data-theme') || 'light';
+  toggle.textContent = current === 'light' ? '☀️' : '🌙';
+  toggle.addEventListener('click', () => {
+    current = current === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', current);
+    toggle.textContent = current === 'light' ? '☀️' : '🌙';
+    try{ localStorage.setItem('avioli-theme', current); }catch(e){}
+  });
+
+  // Enregistrement du service worker (requis pour l'installation PWA)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Service worker non enregistré:', err);
+      });
+    });
+  }
+
+  // Message pour les navigateurs qui ne supportent pas l'installation
+  // directe (ex. Safari iOS) : le bouton reste visible mais informe
+  // l'utilisateur d'utiliser "Ajouter à l'écran d'accueil" depuis le
+  // menu de partage du navigateur.
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  let deferredPrompt = null;
+  const installBtn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'flex';
+  });
+  installBtn.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      return;
+    }
+    if (isStandalone) {
+      alert("L'application est déjà installée.");
+      return;
+    }
+    if (isIOS) {
+      alert("Pour installer AvioliStream : appuie sur l'icône de partage de Safari, puis \"Sur l'écran d'accueil\".");
+      return;
+    }
+    alert("L'installation n'est pas disponible sur ce navigateur pour le moment.");
+  });
+  window.addEventListener('appinstalled', () => {
+    installBtn.style.display = 'none';
+  });
+
+  // Mise à jour du prix affiché selon la durée choisie
+  const durationSelect = document.getElementById('duration');
+  const priceAmount = document.getElementById('priceAmount');
+  const priceDuration = document.getElementById('priceDuration');
+  function fmt(n) {
+    return Number(n).toLocaleString('fr-FR');
+  }
+  durationSelect.addEventListener('change', () => {
+    const opt = durationSelect.options[durationSelect.selectedIndex];
+    priceAmount.textContent = fmt(opt.dataset.price);
+    priceDuration.textContent = opt.value + (opt.value === '1' ? ' mois' : ' mois');
+  });
+
+  // Configuration — projet Supabase AvioliStream
+  const CONFIG = {
+    SUPABASE_URL: 'https://jwrbwpevnvgrojqrxfhm.supabase.co',
+    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3cmJ3cGV2bnZncm9qcXJ4ZmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzODY1MzQsImV4cCI6MjA5ODk2MjUzNH0.NX_dUKiehn2R7ua63_bxdb1bioDf7dmYsJFqFkKBk5I',
+    // Colle ici ta clé publique FedaPay (mode LIVE), ex: 'pk_live_xxxxxxxx'
+    FEDAPAY_PUBLIC_KEY: 'pk_live_l4fvqleIIYNQEtkrIbV1GQoc',
+  };
+  const supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+  function generateReference() {
+    const ts = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `AVS-${ts}-${rand}`;
+  }
+
+  function setFormBusy(busy) {
+    const btn = document.querySelector('#orderForm .btn-pay');
+    btn.disabled = busy;
+    btn.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money';
+  }
+
+  // Soumission — création de la commande (en_attente) puis ouverture du paiement FedaPay
+  document.getElementById('orderForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const firstName = document.getElementById('firstName').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const countrySelect = document.getElementById('countryCode');
+    const countryCode = countrySelect.value;
+    const countryIso = countrySelect.options[countrySelect.selectedIndex].dataset.iso;
+    const whatsappRaw = document.getElementById('whatsapp').value.trim();
+    const opt = durationSelect.options[durationSelect.selectedIndex];
+    const duration = opt.value;
+    const amount = Number(opt.dataset.price);
+
+    if (!firstName || !email || !whatsappRaw) return;
+
+    const phone = countryCode + whatsappRaw.replace(/\s+/g, '');
+    const reference = generateReference();
+
+    const items = [{
+      platform: 'Netflix',
+      plan: 'Premium',
+      duration_months: Number(duration),
+      unit_price: amount,
+    }];
+
+    setFormBusy(true);
+
+    const { error: insertError } = await supabaseClient.from('orders').insert({
+      reference,
+      items,
+      total: amount,
+      customer_name: firstName,
+      customer_phone: phone,
+      customer_email: email,
+      status: 'en_attente',
+    });
+
+    if (insertError) {
+      console.error(insertError);
+      setFormBusy(false);
+      alert("Impossible de créer la commande pour le moment. Réessaie dans un instant ou contacte le support WhatsApp.");
+      return;
+    }
+
+    FedaPay.init({
+      public_key: CONFIG.FEDAPAY_PUBLIC_KEY,
+      transaction: {
+        amount: amount,
+        description: `Netflix Premium — ${duration} mois (${reference})`,
+        custom_metadata: { reference },
+      },
+      customer: {
+        firstname: firstName,
+        lastname: firstName,
+        email: email,
+        phone_number: { number: countryCode + whatsappRaw.replace(/\s+/g, ''), country: countryIso },
+      },
+      onComplete(resp) {
+        if (resp.reason === FedaPay.CHECKOUT_COMPLETE) {
+          setCheckingState();
+          pollOrderStatus(reference);
+        } else {
+          setFormBusy(false);
+        }
+      },
+    }).open();
+  });
+
+  // Verrouille le formulaire et affiche le bouton en mode "vérification"
+  function lockForm() {
+    document.querySelectorAll('#orderForm input, #orderForm select').forEach(el => el.disabled = true);
+  }
+
+  function showBanner(type, html) {
+    let banner = document.getElementById('paymentStatusBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'paymentStatusBanner';
+      document.querySelector('.order-form').appendChild(banner);
+    }
+    banner.className = 'status-banner ' + type;
+    banner.innerHTML = html;
+  }
+
+  function setCheckingState() {
+    lockForm();
+    const btn = document.querySelector('#orderForm .btn-pay');
+    btn.disabled = true;
+    btn.textContent = 'Vérification en cours…';
+  }
+
+  // Interroge Supabase pour connaître le statut réel de la commande (mis à jour par le webhook FedaPay)
+  async function pollOrderStatus(reference, attempt = 0) {
+    const maxAttempts = 12; // ~36 secondes
+    const btn = document.querySelector('#orderForm .btn-pay');
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .select('status')
+      .eq('reference', reference)
+      .single();
+
+    if (!error && data) {
+      if (data.status === 'payee') {
+        btn.disabled = true;
+        btn.textContent = 'Paiement confirmé';
+        showBanner('success', 'Paiement reçu ✅ — Référence ' + reference + '. Commande en cours de traitement. Tes accès arrivent par WhatsApp.');
+        return;
+      }
+      if (data.status === 'echouee' || data.status === 'annulee') {
+        btn.disabled = false;
+        btn.textContent = 'Payer avec Mobile Money';
+        document.querySelectorAll('#orderForm input, #orderForm select').forEach(el => el.disabled = false);
+        showBanner('failed', 'Paiement non abouti — Référence ' + reference + '. Réessaie ou <a href="https://wa.me/22995265358" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">contacte le support WhatsApp</a>.');
+        return;
+      }
+    }
+
+    if (attempt < maxAttempts) {
+      setTimeout(() => pollOrderStatus(reference, attempt + 1), 3000);
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'Paiement en cours de confirmation';
+      showBanner('pending', 'Référence ' + reference + '. Ton paiement est en cours de confirmation, tu recevras tes accès par WhatsApp dès validation.');
+    }
+  }
+</script>
+
+</body>
+</html>
