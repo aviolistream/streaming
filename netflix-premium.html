@@ -281,10 +281,6 @@
             <input type="text" id="firstName" name="firstName" required placeholder="Votre prénom">
           </div>
           <div>
-            <label class="field-label" for="email">Adresse email</label>
-            <input type="email" id="email" name="email" required placeholder="vous@exemple.com">
-          </div>
-          <div>
             <label class="field-label" for="whatsapp">Numéro WhatsApp</label>
             <div class="whatsapp-row">
               <select id="countryCode" name="countryCode" aria-label="Indicatif pays">
@@ -430,7 +426,6 @@
     e.preventDefault();
 
     const firstName = document.getElementById('firstName').value.trim();
-    const email = document.getElementById('email').value.trim();
     const countrySelect = document.getElementById('countryCode');
     const countryCode = countrySelect.value;
     const countryIso = countrySelect.options[countrySelect.selectedIndex].dataset.iso;
@@ -439,9 +434,10 @@
     const duration = opt.value;
     const amount = Number(opt.dataset.price);
 
-    if (!firstName || !email || !whatsappRaw) return;
+    if (!firstName || !whatsappRaw) return;
 
     const phone = countryCode + whatsappRaw.replace(/\s+/g, '');
+    const email = `client.${phone.replace(/\D/g, '')}@aviolistream.com`;
     const reference = generateReference();
 
     const items = [{
