@@ -176,6 +176,15 @@
   .btn-pay:hover{transform:translateY(-2px); box-shadow:0 10px 22px -6px var(--accent);}
   .btn-pay:disabled{opacity:.55; cursor:not-allowed; transform:none; box-shadow:none;}
 
+  .btn-pay-alt{
+    font-family:var(--font-body); font-weight:700; font-size:1rem;
+    padding:14px 26px; border-radius:11px; border:2px solid var(--accent); cursor:pointer;
+    background:transparent; color:var(--accent); margin-top:0;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-pay-alt:hover{transform:translateY(-2px);}
+  .btn-pay-alt:disabled{opacity:.55; cursor:not-allowed; transform:none;}
+
   .status-banner{
     display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:10px;
     font-size:0.88rem; line-height:1.5; margin-top:4px;
@@ -297,8 +306,11 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-pay">Payer avec Mobile Money</button>
-        <div class="trust-note">MTN MoMo · Moov Money · Wave — paiement sécurisé FedaPay</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button type="submit" class="btn-pay" data-provider="fedapay">Payer avec Mobile Money (FedaPay)</button>
+          <button type="submit" class="btn-pay-alt" data-provider="moneroo">Payer avec Mobile Money (Moneroo)</button>
+        </div>
+        <div class="trust-note">MTN MoMo · Moov Money · Wave — paiement sécurisé</div>
       </form>
 
       <div class="desc-block">
@@ -416,15 +428,20 @@
   }
 
   function setFormBusy(busy) {
-    const btn = document.querySelector('#orderForm .btn-pay');
-    btn.disabled = busy;
-    btn.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money';
+    const btnFeda = document.querySelector('#orderForm .btn-pay');
+    const btnMoneroo = document.querySelector('#orderForm .btn-pay-alt');
+    btnFeda.disabled = busy;
+    btnMoneroo.disabled = busy;
+    btnFeda.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money (FedaPay)';
+    btnMoneroo.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money (Moneroo)';
   }
 
-  // Soumission — création de la commande (en_attente) puis ouverture du paiement FedaPay
+  // Soumission — création de la commande (en_attente) puis ouverture du paiement
+  // (FedaPay ou Moneroo, selon le bouton cliqué)
   document.getElementById('orderForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const provider = (e.submitter && e.submitter.dataset.provider) || 'fedapay';
     const firstName = document.getElementById('firstName').value.trim();
     const countrySelect = document.getElementById('countryCode');
     const countryCode = countrySelect.value;
@@ -463,6 +480,29 @@
       console.error(insertError);
       setFormBusy(false);
       alert("Impossible de créer la commande pour le moment. Réessaie dans un instant ou contacte le support WhatsApp.");
+      return;
+    }
+
+    if (provider === 'moneroo') {
+      try {
+        const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/moneroo-init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference }),
+        });
+        const result = await res.json().catch(() => null);
+        if (!res.ok || !result?.checkout_url) {
+          console.error('Erreur Moneroo:', result);
+          setFormBusy(false);
+          alert("Impossible d'initialiser le paiement Moneroo pour le moment. Réessaie dans un instant ou contacte le support WhatsApp.");
+          return;
+        }
+        window.location.href = result.checkout_url;
+      } catch (err) {
+        console.error(err);
+        setFormBusy(false);
+        alert("Impossible de contacter Moneroo pour le moment. Réessaie dans un instant ou contacte le support WhatsApp.");
+      }
       return;
     }
 
@@ -516,7 +556,8 @@
   // Interroge Supabase pour connaître le statut réel de la commande (mis à jour par le webhook FedaPay)
   async function pollOrderStatus(reference, attempt = 0) {
     const maxAttempts = 12; // ~36 secondes
-    const btn = document.querySelector('#orderForm .btn-pay');
+    const btnFeda = document.querySelector('#orderForm .btn-pay');
+    const btnMoneroo = document.querySelector('#orderForm .btn-pay-alt');
     const { data, error } = await supabaseClient
       .from('orders')
       .select('status')
@@ -525,14 +566,18 @@
 
     if (!error && data) {
       if (data.status === 'payee') {
-        btn.disabled = true;
-        btn.textContent = 'Paiement confirmé';
+        btnFeda.disabled = true;
+        btnMoneroo.disabled = true;
+        btnFeda.textContent = 'Paiement confirmé';
+        btnMoneroo.textContent = 'Paiement confirmé';
         showBanner('success', 'Paiement reçu ✅ — Référence ' + reference + '. Commande en cours de traitement. Tes accès arrivent par WhatsApp.');
         return;
       }
       if (data.status === 'echouee' || data.status === 'annulee') {
-        btn.disabled = false;
-        btn.textContent = 'Payer avec Mobile Money';
+        btnFeda.disabled = false;
+        btnMoneroo.disabled = false;
+        btnFeda.textContent = 'Payer avec Mobile Money (FedaPay)';
+        btnMoneroo.textContent = 'Payer avec Mobile Money (Moneroo)';
         document.querySelectorAll('#orderForm input, #orderForm select').forEach(el => el.disabled = false);
         showBanner('failed', 'Paiement non abouti — Référence ' + reference + '. Réessaie ou <a href="https://wa.me/22995265358" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">contacte le support WhatsApp</a>.');
         return;
@@ -542,11 +587,24 @@
     if (attempt < maxAttempts) {
       setTimeout(() => pollOrderStatus(reference, attempt + 1), 3000);
     } else {
-      btn.disabled = true;
-      btn.textContent = 'Paiement en cours de confirmation';
+      btnFeda.disabled = true;
+      btnMoneroo.disabled = true;
+      btnFeda.textContent = 'Paiement en cours de confirmation';
+      btnMoneroo.textContent = 'Paiement en cours de confirmation';
       showBanner('pending', 'Référence ' + reference + '. Ton paiement est en cours de confirmation, tu recevras tes accès par WhatsApp dès validation.');
     }
   }
+
+  // Retour depuis la page de paiement Moneroo (redirection avec ?ref=...) :
+  // on reprend automatiquement la vérification du statut de la commande.
+  (function checkMonerooReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setCheckingState();
+      pollOrderStatus(ref);
+    }
+  })();
 </script>
 
 </body>
