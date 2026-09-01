@@ -307,8 +307,8 @@
         </div>
 
         <div style="display:flex; flex-direction:column; gap:10px;">
-          <button type="submit" class="btn-pay" data-provider="fedapay">Payer avec Mobile Money (FedaPay)</button>
-          <button type="submit" class="btn-pay-alt" data-provider="moneroo">Payer avec Mobile Money (Moneroo)</button>
+          <button type="submit" id="btnFeda" class="btn-pay" data-provider="fedapay">Payer avec Mobile Money (FedaPay)</button>
+          <button type="submit" id="btnMoneroo" class="btn-pay-alt" data-provider="moneroo" style="display:none;">Payer avec Mobile Money (Moneroo)</button>
         </div>
         <div class="trust-note">MTN MoMo · Moov Money · Wave — paiement sécurisé</div>
       </form>
@@ -427,12 +427,20 @@
     return `AVS-${ts}-${rand}`;
   }
 
+  // Bouton Moneroo désactivé temporairement (méthodes de paiement XOF pas encore
+  // activées sur le nouveau compte sandbox) — repasser à true pour le réactiver.
+  const MONEROO_ENABLED = false;
+  if (!MONEROO_ENABLED) {
+    document.getElementById('btnMoneroo').style.display = 'none';
+    document.getElementById('btnFeda').textContent = 'Payer avec Mobile Money';
+  }
+
   function setFormBusy(busy) {
     const btnFeda = document.querySelector('#orderForm .btn-pay');
     const btnMoneroo = document.querySelector('#orderForm .btn-pay-alt');
     btnFeda.disabled = busy;
     btnMoneroo.disabled = busy;
-    btnFeda.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money (FedaPay)';
+    btnFeda.textContent = busy ? 'Traitement en cours…' : (MONEROO_ENABLED ? 'Payer avec Mobile Money (FedaPay)' : 'Payer avec Mobile Money');
     btnMoneroo.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money (Moneroo)';
   }
 
@@ -454,7 +462,7 @@
     if (!firstName || !whatsappRaw) return;
 
     const phone = countryCode + whatsappRaw.replace(/\s+/g, '');
-    const email = `client.${phone.replace(/\D/g, '')}@aviolistream.com`;
+    const email = 'aviolistream@gmail.com'; // reçoit aussi la confirmation FedaPay/Moneroo directement
     const reference = generateReference();
 
     const items = [{
@@ -576,7 +584,7 @@
       if (data.status === 'echouee' || data.status === 'annulee') {
         btnFeda.disabled = false;
         btnMoneroo.disabled = false;
-        btnFeda.textContent = 'Payer avec Mobile Money (FedaPay)';
+        btnFeda.textContent = MONEROO_ENABLED ? 'Payer avec Mobile Money (FedaPay)' : 'Payer avec Mobile Money';
         btnMoneroo.textContent = 'Payer avec Mobile Money (Moneroo)';
         document.querySelectorAll('#orderForm input, #orderForm select').forEach(el => el.disabled = false);
         showBanner('failed', 'Paiement non abouti — Référence ' + reference + '. Réessaie ou <a href="https://wa.me/22995265358" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">contacte le support WhatsApp</a>.');
