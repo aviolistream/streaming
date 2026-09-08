@@ -88,11 +88,6 @@
       radial-gradient(820px 600px at 50% 108%, rgba(67,99,113,0.26), transparent 60%);
   }
   html[data-theme="dark"] body::after{ opacity:.6; }
-  /* Barre de marque en dégradé Netflix → Prime, fixe en haut de viewport */
-  .brand-strip{
-    position:fixed; top:0; left:0; right:0; height:3px; z-index:60; pointer-events:none;
-    background:linear-gradient(90deg, var(--red) 0%, var(--red-dark, var(--red)) 30%, var(--prime-blue) 100%);
-  }
   a{color:inherit; text-decoration:none;}
   img{display:block; max-width:100%;}
   .wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
@@ -208,8 +203,6 @@
 </style>
 </head>
 <body>
-<div class="brand-strip"></div>
-
 <header>
   <div class="header-row">
     <div class="header-left">
@@ -444,6 +437,47 @@
     btnMoneroo.textContent = busy ? 'Traitement en cours…' : 'Payer avec Mobile Money (Moneroo)';
   }
 
+  // Devine l'opérateur Mobile Money à partir du préfixe du numéro, pour
+  // déclencher un paiement FedaPay "sans redirection" (push direct sur le
+  // téléphone du client, sans jamais afficher le widget/la page FedaPay).
+  // Retourne null si l'opérateur ne peut pas être déterminé avec certitude
+  // ou n'est pas supporté sans redirection : dans ce cas on retombe sur le
+  // widget FedaPay classique.
+  function detectFedaPayMode(countryIso, localNumber) {
+    let digits = (localNumber || '').replace(/\D/g, '');
+    if (countryIso === 'bj') {
+      // Depuis nov. 2024 les numéros béninois ont un préfixe "01" ajouté.
+      if (digits.startsWith('01')) digits = digits.slice(2);
+      const p2 = Number(digits.slice(0, 2));
+      const MTN = [42, 46, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 66, 67, 69, 90, 91, 96, 97];
+      const MOOV = [45, 60, 63, 64, 65, 68, 94, 95, 98, 99];
+      const SBIN = [40, 41, 43, 44, 47];
+      if (MTN.includes(p2)) return 'mtn_open';
+      if (MOOV.includes(p2)) return 'moov';
+      if (SBIN.includes(p2)) return 'sbin';
+      return null;
+    }
+    if (countryIso === 'tg') {
+      const p2 = Number(digits.slice(0, 2));
+      const TOGOCEL = [70, 71, 72, 73, 90, 91, 92, 93];
+      const MOOV = [78, 79, 96, 97, 98, 99];
+      if (TOGOCEL.includes(p2)) return 'togocel';
+      if (MOOV.includes(p2)) return 'moov_tg';
+      return null;
+    }
+    if (countryIso === 'ci') {
+      // Seul MTN (préfixe 05) est supporté sans redirection ; Orange (07)
+      // et Moov (01) nécessitent le widget classique.
+      return digits.slice(0, 2) === '05' ? 'mtn_ci' : null;
+    }
+    if (countryIso === 'sn') {
+      // Seul Free Sénégal (préfixe 76) est supporté sans redirection.
+      return digits.slice(0, 2) === '76' ? 'free_sn' : null;
+    }
+    // Niger, Mali, Guinée : pas de mode sans redirection fiable -> widget.
+    return null;
+  }
+
   // Soumission — création de la commande (en_attente) puis ouverture du paiement
   // (FedaPay ou Moneroo, selon le bouton cliqué)
   document.getElementById('orderForm').addEventListener('submit', async (e) => {
@@ -512,6 +546,33 @@
         alert("Impossible de contacter Moneroo pour le moment. Réessaie dans un instant ou contacte le support WhatsApp.");
       }
       return;
+    }
+
+    // FedaPay — tente d'abord un paiement SANS redirection (push direct sur
+    // le téléphone du client) ; si l'opérateur ne peut pas être déterminé ou
+    // que l'appel échoue, on retombe sur le widget FedaPay classique ci-dessous.
+    const fedaMode = detectFedaPayMode(countryIso, whatsappRaw.replace(/\s+/g, ''));
+    if (fedaMode) {
+      try {
+        const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/fedapay-direct-init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reference,
+            mode: fedaMode,
+            phone_number: { number: whatsappRaw.replace(/\s+/g, ''), country: countryIso },
+          }),
+        });
+        const result = await res.json().catch(() => null);
+        if (res.ok && result?.status === 'sent') {
+          setCheckingState();
+          pollOrderStatus(reference);
+          return;
+        }
+        console.error('FedaPay sans redirection indisponible, bascule sur le widget:', result);
+      } catch (err) {
+        console.error('FedaPay sans redirection (erreur réseau), bascule sur le widget:', err);
+      }
     }
 
     FedaPay.init({
