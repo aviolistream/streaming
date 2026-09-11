@@ -146,15 +146,15 @@
     .header-left{justify-content:flex-start;}
     .logo{font-size:1.05rem;}
   }
-  .install-btn{
+  .profile-btn{
     width:34px; height:34px; border-radius:50%;
     background:var(--red); color:#fff;
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0; border:none; cursor:pointer;
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .install-btn:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(255,49,49,0.3);}
-  .install-btn svg{width:15px; height:15px;}
+  .profile-btn:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(255,49,49,0.3);}
+  .profile-btn svg{width:15px; height:15px;}
 
   /* Ticker */
   .ticker-bar{
@@ -419,13 +419,12 @@
         <a href="#pourquoi-nous">Pourquoi nous</a>
         <a href="#faq">FAQ</a>
       </nav>
-      <button class="install-btn" id="installBtn" aria-label="Installer l'application" title="Installer l'application">
+      <a href="/connexion" class="profile-btn" aria-label="Mon abonnement" title="Mon abonnement">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3v12"/>
-          <path d="M7 10l5 5 5-5"/>
-          <path d="M4 19h16"/>
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
         </svg>
-      </button>
+      </a>
     </div>
   </div>
   <div class="ticker-bar">
@@ -449,8 +448,8 @@
 <section class="hero">
   <div class="hero-grid">
     <div class="hero-copy">
-      <h1>Ton profil <span class="nf">Netflix</span> ou <span class="pv">Prime Video</span>, payé en Mobile Money, prêt en quelques minutes</h1>
-      <p class="hero-sub">Un profil individuel avec ton propre code PIN, un prix fixe en FCFA, et tes accès envoyés directement sur WhatsApp dès que le paiement est confirmé.</p>
+      <h1>Ton profil <span class="nf">Netflix</span> ou <span class="pv">Prime Video</span>, payé par Mobile Money, prêt en quelques minutes</h1>
+      <p class="hero-sub">Un profil individuel avec ton propre code PIN, un prix fixe en FCFA, et tes accès envoyés directement par Mail et WhatsApp dès que le paiement est confirmé.</p>
       <div class="hero-actions">
         <a href="#catalogue" class="btn-primary">Voir les offres</a>
         <a href="#comment-ca-marche" class="btn-secondary">Comment ça marche</a>
@@ -670,41 +669,6 @@
     });
   }
 
-  // Message pour les navigateurs qui ne supportent pas l'installation
-  // directe (ex. Safari iOS) : le bouton reste visible mais informe
-  // l'utilisateur d'utiliser "Ajouter à l'écran d'accueil" depuis le
-  // menu de partage du navigateur.
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-  // Installation de la webapp (PWA)
-  let deferredPrompt = null;
-  const installBtn = document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    installBtn.style.display = 'flex';
-  });
-  installBtn.addEventListener('click', async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      return;
-    }
-    if (isStandalone) {
-      alert("L'application est déjà installée.");
-      return;
-    }
-    if (isIOS) {
-      alert("Pour installer AvioliStream : appuie sur l'icône de partage de Safari, puis \"Sur l'écran d'accueil\".");
-      return;
-    }
-    alert("L'installation n'est pas disponible sur ce navigateur pour le moment.");
-  });
-  window.addEventListener('appinstalled', () => {
-    installBtn.style.display = 'none';
-  });
 </script>
 
 </body>
