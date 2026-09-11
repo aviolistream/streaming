@@ -117,9 +117,9 @@
     .header-left{justify-content:flex-start;}
     .logo{font-size:1.05rem;}
   }
-  .install-btn{width:34px; height:34px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; border:none; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;}
-  .install-btn:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(255,49,49,0.3);}
-  .install-btn svg{width:15px; height:15px;}
+  .profile-btn{width:34px; height:34px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; border:none; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;}
+  .profile-btn:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(255,49,49,0.3);}
+  .profile-btn svg{width:15px; height:15px;}
 
   .ticker-bar{background:var(--bg-soft); border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:8px 0;}
   .ticker-track{display:inline-flex; gap:44px; animation:scroll-left 30s linear infinite; font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);}
@@ -225,13 +225,12 @@
         <a href="/#pourquoi-nous">Pourquoi nous</a>
         <a href="/#faq">FAQ</a>
       </nav>
-      <button class="install-btn" id="installBtn" aria-label="Installer l'application" title="Installer l'application">
+      <a href="/connexion" class="profile-btn" aria-label="Mon abonnement" title="Mon abonnement">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3v12"/>
-          <path d="M7 10l5 5 5-5"/>
-          <path d="M4 19h16"/>
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
         </svg>
-      </button>
+      </a>
     </div>
   </div>
   <div class="ticker-bar">
@@ -290,6 +289,7 @@
           <div>
             <label class="field-label" for="firstName">Nom d'utilisateur</label>
             <input type="text" id="firstName" name="firstName" required placeholder="Votre nom de profil">
+            <span id="usernameError" style="display:none; color:#888; font-size:0.85em; margin-top:4px;">Ce nom existe déjà. Si c'est vous et que vous renouvelez, continuez normalement. Sinon, choisissez un autre nom.</span>
           </div>
           <div>
             <label class="field-label" for="customerEmail">Email</label>
@@ -373,40 +373,6 @@
     });
   }
 
-  // Message pour les navigateurs qui ne supportent pas l'installation
-  // directe (ex. Safari iOS) : le bouton reste visible mais informe
-  // l'utilisateur d'utiliser "Ajouter à l'écran d'accueil" depuis le
-  // menu de partage du navigateur.
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-  let deferredPrompt = null;
-  const installBtn = document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    installBtn.style.display = 'flex';
-  });
-  installBtn.addEventListener('click', async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      return;
-    }
-    if (isStandalone) {
-      alert("L'application est déjà installée.");
-      return;
-    }
-    if (isIOS) {
-      alert("Pour installer AvioliStream : appuie sur l'icône de partage de Safari, puis \"Sur l'écran d'accueil\".");
-      return;
-    }
-    alert("L'installation n'est pas disponible sur ce navigateur pour le moment.");
-  });
-  window.addEventListener('appinstalled', () => {
-    installBtn.style.display = 'none';
-  });
 
   // Mise à jour du prix affiché selon la durée choisie
   const durationSelect = document.getElementById('duration');
@@ -493,6 +459,38 @@
     // Niger, Mali, Guinée : pas de mode sans redirection fiable -> widget.
     return null;
   }
+
+  // Vérifie si le nom d'utilisateur est déjà pris par un autre client — un
+  // nom d'utilisateur est une clé unique qui identifie le client d'une
+  // commande à l'autre (sert aussi bien pour le premier achat que pour les
+  // renouvellements, indépendamment du numéro de téléphone).
+  async function checkUsernameAvailable(username) {
+    try {
+      const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/check-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || typeof result?.available !== 'boolean') return true; // en cas de doute, ne bloque pas
+      return result.available;
+    } catch (err) {
+      console.error('Erreur vérification nom d\'utilisateur:', err);
+      return true; // en cas de panne réseau, ne bloque pas la commande
+    }
+  }
+
+  const firstNameInput = document.getElementById('firstName');
+  const usernameErrorEl = document.getElementById('usernameError');
+  firstNameInput.addEventListener('blur', async () => {
+    const name = firstNameInput.value.trim();
+    if (!name) { usernameErrorEl.style.display = 'none'; return; }
+    const available = await checkUsernameAvailable(name);
+    usernameErrorEl.style.display = available ? 'none' : 'block';
+  });
+  firstNameInput.addEventListener('input', () => {
+    usernameErrorEl.style.display = 'none';
+  });
 
   // Soumission — création de la commande (en_attente) puis ouverture du paiement
   // (FedaPay ou Moneroo, selon le bouton cliqué)
@@ -658,7 +656,7 @@
         btnMoneroo.disabled = true;
         btnFeda.textContent = 'Paiement confirmé';
         btnMoneroo.textContent = 'Paiement confirmé';
-        showBanner('success', 'Paiement reçu ✅ — Référence ' + reference + '. Commande en cours de traitement. Tes accès arrivent par WhatsApp.');
+        showBanner('success', 'Paiement reçu ✅ — Référence ' + reference + '. Commande en cours de traitement. Vos accès arrivent par Mail et WhatsApp.');
         return;
       }
       if (data.status === 'echouee' || data.status === 'annulee') {
@@ -667,7 +665,7 @@
         btnFeda.textContent = MONEROO_ENABLED ? 'Payer avec Mobile Money (FedaPay)' : 'Payer avec Mobile Money';
         btnMoneroo.textContent = 'Payer avec Mobile Money (Moneroo)';
         document.querySelectorAll('#orderForm input, #orderForm select').forEach(el => el.disabled = false);
-        showBanner('failed', 'Paiement non abouti — Référence ' + reference + '. Réessaie ou <a href="https://wa.me/22995265358" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">contacte le support WhatsApp</a>.');
+        showBanner('failed', 'Paiement non abouti — Référence ' + reference + '. Réessayez ou <a href="https://wa.me/22995265358" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">contactez le support WhatsApp</a>.');
         return;
       }
     }
@@ -679,7 +677,7 @@
       btnMoneroo.disabled = true;
       btnFeda.textContent = 'Paiement en cours de confirmation';
       btnMoneroo.textContent = 'Paiement en cours de confirmation';
-      showBanner('pending', 'Référence ' + reference + '. Ton paiement est en cours de confirmation, tu recevras tes accès par WhatsApp dès validation.');
+      showBanner('pending', 'Référence ' + reference + '. Votre paiement est en cours de confirmation, vous recevrez vos accès par Mail et WhatsApp dès validation.');
     }
   }
 
