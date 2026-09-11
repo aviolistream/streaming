@@ -188,7 +188,7 @@
       <h1>Mon abonnement</h1>
       <p class="sub">Connectez-vous avec votre nom d'utilisateur pour voir votre abonnement et le renouveler.</p>
 
-      <div class="login-error" id="loginError">Nom d'utilisateur ou numéro incorrect.</div>
+      <div class="login-error" id="loginError">Nom d'utilisateur ou code PIN incorrect.</div>
 
       <form id="loginForm">
         <div class="field-group">
@@ -196,9 +196,9 @@
           <input type="text" id="loginUsername" required placeholder="Votre nom de profil">
         </div>
         <div class="field-group">
-          <label class="field-label" for="loginPhone">Numéro de téléphone</label>
+          <label class="field-label" for="loginPin">Code PIN</label>
           <div class="password-wrap">
-            <input type="password" id="loginPhone" inputmode="numeric" required placeholder="Votre numéro (utilisé à la commande)">
+            <input type="password" id="loginPin" inputmode="numeric" required placeholder="Le PIN de votre profil">
             <button type="button" class="toggle-pw" id="togglePw">Afficher</button>
           </div>
         </div>
@@ -258,10 +258,10 @@
   };
 
   const togglePwBtn = document.getElementById('togglePw');
-  const loginPhoneInput = document.getElementById('loginPhone');
+  const loginPinInput = document.getElementById('loginPin');
   togglePwBtn.addEventListener('click', () => {
-    const isPw = loginPhoneInput.type === 'password';
-    loginPhoneInput.type = isPw ? 'text' : 'password';
+    const isPw = loginPinInput.type === 'password';
+    loginPinInput.type = isPw ? 'text' : 'password';
     togglePwBtn.textContent = isPw ? 'Masquer' : 'Afficher';
   });
 
@@ -289,8 +289,8 @@
     e.preventDefault();
     loginError.style.display = 'none';
     const username = document.getElementById('loginUsername').value.trim();
-    const phone = loginPhoneInput.value.trim();
-    if (!username || !phone) return;
+    const pin = loginPinInput.value.trim();
+    if (!username || !pin) return;
 
     loginBtn.disabled = true;
     loginBtn.textContent = 'Connexion...';
@@ -299,12 +299,12 @@
       const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/customer-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, phone }),
+        body: JSON.stringify({ username, pin }),
       });
       const result = await res.json().catch(() => null);
 
       if (!res.ok || !result?.subscriptions) {
-        loginError.textContent = result?.error || 'Nom d\'utilisateur ou numéro incorrect.';
+        loginError.textContent = result?.error || 'Nom d\'utilisateur ou code PIN incorrect.';
         loginError.style.display = 'block';
         loginBtn.disabled = false;
         loginBtn.textContent = 'Se connecter';
