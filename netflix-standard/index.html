@@ -492,6 +492,38 @@
     usernameErrorEl.style.display = 'none';
   });
 
+  // Renouvellement depuis la page /connexion : la page produit reçoit
+  // ?renew=1&username=...&phone=...&email=... — on pré-remplit le
+  // formulaire avec ces infos puis on déclenche le paiement automatiquement,
+  // exactement comme si le client avait cliqué sur "Payer" lui-même.
+  (function autoRenewFromLoginPage() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('renew') !== '1') return;
+
+    const username = params.get('username') || '';
+    const rawPhone = (params.get('phone') || '').replace(/\s+/g, '');
+    const email = params.get('email') || '';
+    if (!username || !rawPhone) return;
+
+    const countrySelect = document.getElementById('countryCode');
+    const KNOWN_PREFIXES = ['+229', '+228', '+225', '+221', '+223', '+227', '+224'];
+    const matchedPrefix = KNOWN_PREFIXES.find((p) => rawPhone.startsWith(p));
+    const localNumber = matchedPrefix ? rawPhone.slice(matchedPrefix.length) : rawPhone;
+
+    document.getElementById('firstName').value = username;
+    if (email) document.getElementById('customerEmail').value = email;
+    document.getElementById('whatsapp').value = localNumber;
+    if (matchedPrefix) countrySelect.value = matchedPrefix;
+
+    // Laisse le DOM se stabiliser puis déclenche le clic sur le bouton
+    // FedaPay, comme un vrai clic client (déclenche le même code que la
+    // soumission manuelle du formulaire).
+    setTimeout(() => {
+      const btnFeda = document.getElementById('btnFeda');
+      if (btnFeda) document.getElementById('orderForm').requestSubmit(btnFeda);
+    }, 50);
+  })();
+
   // Soumission — création de la commande (en_attente) puis ouverture du paiement
   // (FedaPay ou Moneroo, selon le bouton cliqué)
   document.getElementById('orderForm').addEventListener('submit', async (e) => {
