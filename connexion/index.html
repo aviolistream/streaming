@@ -264,6 +264,9 @@
     SUPABASE_URL: 'https://jwrbwpevnvgrojqrxfhm.supabase.co',
   };
 
+  const SESSION_KEY = 'avioli-customer-session'; // { username, pin } — reste jusqu'à déconnexion manuelle
+  const CACHE_KEY = 'avioli-customer-subs-cache'; // dernière liste d'abonnements affichée, pour un affichage instantané
+
   const togglePwBtn = document.getElementById('togglePw');
   const loginPinInput = document.getElementById('loginPin');
   const eyeIcon = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
@@ -289,22 +292,48 @@
           <div class="service">${s.service}</div>
           <div class="row"><span>Profil</span><b>${s.profileLabel}</b></div>
           <div class="row"><span>Code PIN</span><b>${s.pin}</b></div>
+          <div class="row"><span>Numéro</span><b>${s.phone}</b></div>
           <div class="row"><span>Expire le</span><b>${expiryDate}</b></div>
           <a href="${s.renewUrl}" class="btn-renew">Renouveler</a>
         </div>`;
     }).join('');
   }
 
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginError.style.display = 'none';
-    const username = document.getElementById('loginUsername').value.trim();
-    const pin = loginPinInput.value.trim();
-    if (!username || !pin) return;
+  function showSubscriptions(subs) {
+    loginCard.style.display = 'none';
+    subsWrap.style.display = 'block';
+    renderSubscriptions(subs);
+  }
 
-    loginBtn.disabled = true;
-    loginBtn.textContent = 'Connexion...';
+  function saveSession(username, pin) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ username, pin })); } catch (e) {}
+  }
+  function loadSession() {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function clearSession() {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(CACHE_KEY);
+    } catch (e) {}
+  }
+  function saveSubsCache(subs) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(subs)); } catch (e) {}
+  }
+  function loadSubsCache() {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; }
+  }
 
+  // Appelle l'API de connexion ; en cas de succès, met à jour l'affichage
+  // et le cache. showLoadingState contrôle si on affiche "Connexion..." sur
+  // le bouton (première connexion) ou si on rafraîchit silencieusement en
+  // arrière-plan (session déjà affichée depuis le cache).
+  async function attemptLogin(username, pin, showLoadingState) {
+    if (showLoadingState) {
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Connexion...';
+      loginError.style.display = 'none';
+    }
     try {
       const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/customer-login`, {
         method: 'POST',
@@ -314,33 +343,68 @@
       const result = await res.json().catch(() => null);
 
       if (!res.ok || !result?.subscriptions) {
-        loginError.textContent = result?.error || 'Nom d\'utilisateur ou code PIN incorrect.';
+        if (showLoadingState) {
+          loginError.textContent = result?.error || 'Nom d\'utilisateur ou code PIN incorrect.';
+          loginError.style.display = 'block';
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Se connecter';
+        } else {
+          // Le rafraîchissement silencieux a échoué (session invalide) —
+          // on déconnecte proprement plutôt que de laisser des données obsolètes.
+          clearSession();
+        }
+        return false;
+      }
+
+      saveSession(username, pin);
+      saveSubsCache(result.subscriptions);
+      showSubscriptions(result.subscriptions);
+      if (showLoadingState) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Se connecter';
+      }
+      return true;
+    } catch (err) {
+      console.error('Erreur connexion:', err);
+      if (showLoadingState) {
+        loginError.textContent = 'Erreur réseau, réessayez.';
         loginError.style.display = 'block';
         loginBtn.disabled = false;
         loginBtn.textContent = 'Se connecter';
-        return;
       }
-
-      loginCard.style.display = 'none';
-      subsWrap.style.display = 'block';
-      renderSubscriptions(result.subscriptions);
-    } catch (err) {
-      console.error('Erreur connexion:', err);
-      loginError.textContent = 'Erreur réseau, réessayez.';
-      loginError.style.display = 'block';
-      loginBtn.disabled = false;
-      loginBtn.textContent = 'Se connecter';
+      return false;
     }
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername').value.trim();
+    const pin = loginPinInput.value.trim();
+    if (!username || !pin) return;
+    attemptLogin(username, pin, true);
   });
 
   document.getElementById('logoutLink').addEventListener('click', (e) => {
     e.preventDefault();
+    clearSession();
     subsWrap.style.display = 'none';
     loginCard.style.display = 'block';
     document.getElementById('loginForm').reset();
     loginBtn.disabled = false;
     loginBtn.textContent = 'Se connecter';
   });
+
+  // Reste connecté tant que le client ne s'est pas déconnecté lui-même :
+  // au chargement, si une session est enregistrée, on affiche d'abord les
+  // données en cache (instantané), puis on rafraîchit en silence auprès du
+  // serveur (au cas où le PIN ou la date d'expiration auraient changé).
+  (function restoreSession() {
+    const session = loadSession();
+    if (!session) return;
+    const cached = loadSubsCache();
+    if (cached) showSubscriptions(cached);
+    attemptLogin(session.username, session.pin, !cached);
+  })();
 </script>
 
 </body>
