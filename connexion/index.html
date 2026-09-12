@@ -287,6 +287,13 @@
   function renderSubscriptions(subs) {
     subsList.innerHTML = subs.map((s) => {
       const expiryDate = new Date(s.expiry).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      const renewParams = new URLSearchParams({
+        renew: '1',
+        username: s.profileLabel,
+        phone: s.phone,
+        email: s.email || '',
+      });
+      const renewHref = `${s.renewUrl}?${renewParams.toString()}`;
       return `
         <div class="sub-card">
           <div class="service">${s.service}</div>
@@ -294,7 +301,7 @@
           <div class="row"><span>Code PIN</span><b>${s.pin}</b></div>
           <div class="row"><span>Numéro</span><b>${s.phone}</b></div>
           <div class="row"><span>Expire le</span><b>${expiryDate}</b></div>
-          <a href="${s.renewUrl}" class="btn-renew">Renouveler</a>
+          <a href="${renewHref}" class="btn-renew">Renouveler</a>
         </div>`;
     }).join('');
   }
