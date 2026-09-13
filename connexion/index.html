@@ -284,9 +284,18 @@
   const loginError = document.getElementById('loginError');
   const loginBtn = document.getElementById('loginBtn');
 
+  function expiryDisplay(expiryIso) {
+    const now = new Date();
+    const expiry = new Date(expiryIso);
+    const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 0) return { text: 'Expiré', color: '#ef4444' };
+    if (daysLeft <= 3) return { text: `${daysLeft} jour(s)`, color: '#eab308' };
+    return { text: `${daysLeft} jour(s)`, color: '#22c55e' };
+  }
+
   function renderSubscriptions(subs) {
     subsList.innerHTML = subs.map((s) => {
-      const expiryDate = new Date(s.expiry).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      const exp = expiryDisplay(s.expiry);
       const renewParams = new URLSearchParams({
         renew: '1',
         username: s.profileLabel,
@@ -300,7 +309,7 @@
           <div class="row"><span>Profil</span><b>${s.profileLabel}</b></div>
           <div class="row"><span>Code PIN</span><b>${s.pin}</b></div>
           <div class="row"><span>Numéro</span><b>${s.phone}</b></div>
-          <div class="row"><span>Expire le</span><b>${expiryDate}</b></div>
+          <div class="row"><span>Expire dans</span><b style="color:${exp.color};">${exp.text}</b></div>
           <a href="${renewHref}" class="btn-renew">Renouveler</a>
         </div>`;
     }).join('');
