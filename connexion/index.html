@@ -23,10 +23,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
-<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="theme-color" content="#FF3131">
 <style>
   :root{
@@ -409,6 +409,16 @@
     loginBtn.disabled = false;
     loginBtn.textContent = 'Se connecter';
   });
+
+  // Enregistrement du service worker, comme sur le reste du site (permet
+  // l'installation en app et le fonctionnement hors-ligne partiel).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.error('Erreur service worker:', err);
+      });
+    });
+  }
 
   // Reste connecté tant que le client ne s'est pas déconnecté lui-même :
   // au chargement, si une session est enregistrée, on affiche d'abord les
