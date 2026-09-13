@@ -543,9 +543,6 @@
     if (!firstName || !whatsappRaw || !customerEmail) return;
 
     const phone = countryCode + whatsappRaw.replace(/\s+/g, '');
-    // Email fixe envoyé à FedaPay/Moneroo pour que le vendeur reçoive aussi la
-    // confirmation de paiement automatique — distinct de l'email du client.
-    const RECEIPT_EMAIL = 'aviolistream1@gmail.com';
     const reference = generateReference();
 
     const items = [{
@@ -634,7 +631,7 @@
       customer: {
         firstname: firstName,
         lastname: firstName,
-        email: RECEIPT_EMAIL,
+        email: customerEmail,
         phone_number: { number: countryCode + whatsappRaw.replace(/\s+/g, ''), country: countryIso },
       },
       onComplete(resp) {
