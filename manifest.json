@@ -2,7 +2,7 @@
   "name": "AvioliStream",
   "short_name": "AvioliStream",
   "description": "Abonnements Netflix et Prime Video, prix fixes en FCFA, paiement Mobile Money sécurisé.",
-  "start_url": "/index.html",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
