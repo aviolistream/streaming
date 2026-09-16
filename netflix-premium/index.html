@@ -292,7 +292,7 @@
         <div class="form-row">
           <div>
             <label class="field-label" for="firstName">Nom d'utilisateur</label>
-            <input type="text" id="firstName" name="firstName" required placeholder="Votre nom de profil">
+            <input type="text" id="firstName" name="firstName" required placeholder="Votre nom de profil" pattern="\S+" title="Un seul mot, sans espace">
             <span id="usernameError" style="display:none; color:#888; font-size:0.85em; margin-top:4px;">Ce nom existe déjà. Si c'est vous et que vous renouvelez, continuez normalement. Sinon, choisissez un autre nom.</span>
           </div>
           <div>
@@ -486,6 +486,11 @@
 
   const firstNameInput = document.getElementById('firstName');
   const usernameErrorEl = document.getElementById('usernameError');
+  // Empêche complètement les espaces à la saisie — un seul mot, pas de
+  // "Prénom Nom" avec espace, pour garder un nom d'utilisateur simple.
+  firstNameInput.addEventListener('beforeinput', (e) => {
+    if (e.data && /\s/.test(e.data)) e.preventDefault();
+  });
   firstNameInput.addEventListener('blur', async () => {
     const name = firstNameInput.value.trim();
     if (!name) { usernameErrorEl.style.display = 'none'; return; }
