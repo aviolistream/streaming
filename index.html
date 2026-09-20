@@ -405,6 +405,18 @@
     .stat{padding:14px 8px;}
     .stat b{font-size:1.2rem;}
     .stat span{font-size:0.7rem; white-space:nowrap;}
+  }  .whatsapp-float{
+    position:fixed; right:20px; bottom:20px; z-index:70;
+    width:56px; height:56px; border-radius:50%;
+    background:#25D366; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 24px -6px rgba(37,211,102,0.55);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .whatsapp-float:hover{ transform:translateY(-3px) scale(1.04); box-shadow:0 14px 28px -6px rgba(37,211,102,0.65); }
+  .whatsapp-float svg{ width:30px; height:30px; }
+  @media (max-width:480px){
+    .whatsapp-float{ right:14px; bottom:14px; width:52px; height:52px; }
+    .whatsapp-float svg{ width:27px; height:27px; }
   }
 </style>
 </head>
@@ -675,5 +687,10 @@
 
 </script>
 
+<a href="https://wa.me/22995265358" target="_blank" rel="noopener" class="whatsapp-float" aria-label="Discuter sur WhatsApp" title="Discuter sur WhatsApp">
+  <svg viewBox="0 0 32 32" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16.004 3C9.376 3 4 8.373 4 15c0 2.386.702 4.607 1.912 6.468L4 29l7.72-1.874A11.93 11.93 0 0 0 16.004 27C22.63 27 28 21.627 28 15S22.63 3 16.004 3zm6.978 17.03c-.29.816-1.44 1.5-2.36 1.696-.63.133-1.453.24-4.223-.906-3.545-1.47-5.825-5.05-6.002-5.284-.176-.234-1.435-1.91-1.435-3.643 0-1.732.906-2.583 1.228-2.938.322-.355.703-.443.938-.443.235 0 .47.002.674.012.216.01.507-.082.793.606.29.7.984 2.42 1.07 2.596.088.176.147.382.03.616-.117.235-.176.382-.352.588-.176.206-.37.46-.528.618-.176.176-.36.367-.155.72.206.353.916 1.51 1.967 2.446 1.352 1.204 2.492 1.578 2.845 1.755.353.176.559.147.766-.088.206-.235.882-1.03 1.117-1.384.235-.353.47-.294.793-.176.323.117 2.043.964 2.395 1.14.353.176.588.264.674.412.088.147.088.85-.2 1.665z"/>
+  </svg>
+</a>
 </body>
 </html>
