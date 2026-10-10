@@ -32,6 +32,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AvioliStream">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
 <style>
   :root{
     --red:#FF3131;
@@ -115,12 +117,12 @@
   .field-label{display:block; font-size:0.82rem; font-weight:600; color:var(--muted); margin-bottom:8px;}
   .field-group{margin-bottom:16px;}
   .password-wrap{position:relative;}
-  input{
+  input, select{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
     background:var(--surface); color:var(--text); font-family:var(--font-body); font-size:0.95rem;
   }
   .password-wrap input{padding-right:44px;}
-  input:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  input:focus, select:focus{outline:2px solid var(--accent); outline-offset:1px;}
   .toggle-pw{
     position:absolute; right:8px; top:50%; transform:translateY(-50%);
     background:none; border:none; cursor:pointer; color:var(--muted); padding:6px;
@@ -151,10 +153,32 @@
   .sub-card .service{font-family:var(--font-display); font-weight:700; font-size:1.1rem; margin-bottom:12px;}
   .sub-card .row{display:flex; justify-content:space-between; font-size:0.88rem; color:var(--muted); margin-bottom:6px;}
   .sub-card .row b{color:var(--text); font-family:var(--font-mono);}
-  .sub-card .btn-renew{
-    display:block; width:fit-content; margin:14px auto 0; font-family:var(--font-body); font-weight:700; font-size:0.9rem;
-    padding:10px 20px; border-radius:9px; background:var(--accent); color:#fff; text-align:center;
+
+  .renew-block{margin-top:16px; padding-top:16px; border-top:1px solid var(--line);}
+  .renew-duration{margin-bottom:10px;}
+  .renew-price{
+    display:flex; align-items:baseline; gap:6px; font-family:var(--font-mono); font-size:0.95rem;
+    margin-bottom:12px;
   }
+  .renew-price .amount{font-weight:700; font-size:1.15rem;}
+  .renew-price .unit{color:var(--muted); font-size:0.8rem;}
+
+  .btn-renew{
+    display:block; width:100%; font-family:var(--font-body); font-weight:700; font-size:0.92rem;
+    padding:11px 20px; border-radius:9px; border:none; background:var(--accent); color:#fff;
+    text-align:center; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-renew:hover{transform:translateY(-2px); box-shadow:0 8px 18px -6px var(--accent);}
+  .btn-renew:disabled{opacity:.55; cursor:not-allowed; transform:none; box-shadow:none;}
+
+  .renew-banner{
+    display:none; align-items:center; gap:10px; padding:12px 14px; border-radius:10px;
+    font-size:0.85rem; line-height:1.5; margin-top:12px;
+  }
+  .renew-banner.success{display:flex; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); color:#22c55e;}
+  .renew-banner.pending{display:flex; background:rgba(255,49,49,0.08); border:1px solid rgba(255,49,49,0.25); color:var(--muted);}
+  .renew-banner.failed{display:flex; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444;}
+
   .logout-link{display:block; text-align:center; margin-top:24px; color:var(--muted); font-size:0.85rem;}
   .logout-link:hover{color:var(--text);}
 
@@ -264,12 +288,82 @@
     syncToggleIcon();
   });
 
+  // Configuration — projet Supabase AvioliStream (mêmes valeurs que les pages produit)
   const CONFIG = {
     SUPABASE_URL: 'https://jwrbwpevnvgrojqrxfhm.supabase.co',
+    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3cmJ3cGV2bnZncm9qcXJ4ZmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzODY1MzQsImV4cCI6MjA5ODk2MjUzNH0.NX_dUKiehn2R7ua63_bxdb1bioDf7dmYsJFqFkKBk5I',
+    FEDAPAY_PUBLIC_KEY: 'pk_live_l4fvqleIIYNQEtkrIbV1GQoc',
+  };
+  const supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+  // Grille de prix par formule — 1 / 2 / 3 mois (FCFA)
+  const PRICE_TABLE = {
+    'netflix|standard': [1999, 3499, 4999],
+    'netflix|premium': [2599, 4499, 6499],
+    'prime video|standard': [1099, 1799, 2699],
+    'prime video|premium': [1999, 3499, 4999],
+    'prime video|global': [3099, 5699, 7999],
   };
 
-  const SESSION_KEY = 'avioli-customer-session'; // { username, pin } — reste jusqu'à déconnexion manuelle
-  const CACHE_KEY = 'avioli-customer-subs-cache'; // dernière liste d'abonnements affichée, pour un affichage instantané
+  function parseService(serviceLabel) {
+    const platform = /netflix/i.test(serviceLabel) ? 'Netflix' : 'Prime Video';
+    const plan = serviceLabel.replace(/Netflix|Prime Video/i, '').trim();
+    return { platform, plan };
+  }
+
+  function getPrices(serviceLabel) {
+    const { platform, plan } = parseService(serviceLabel);
+    const key = `${platform.toLowerCase()}|${plan.toLowerCase()}`;
+    return PRICE_TABLE[key] || null;
+  }
+
+  function fmt(n) {
+    return Number(n).toLocaleString('fr-FR');
+  }
+
+  function generateReference() {
+    const ts = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `AVS-${ts}-${rand}`;
+  }
+
+  const KNOWN_PREFIXES = ['+229', '+228', '+225', '+221', '+223', '+227', '+224'];
+  const COUNTRY_ISO = { '+229': 'bj', '+228': 'tg', '+225': 'ci', '+221': 'sn', '+223': 'ml', '+227': 'ne', '+224': 'gn' };
+
+  function splitPhone(fullPhone) {
+    const prefix = KNOWN_PREFIXES.find((p) => fullPhone.startsWith(p)) || '+229';
+    return { countryCode: prefix, localNumber: fullPhone.slice(prefix.length), countryIso: COUNTRY_ISO[prefix] };
+  }
+
+  // Devine l'opérateur Mobile Money à partir du préfixe du numéro, pour
+  // déclencher un paiement FedaPay "sans redirection" (push direct sur le
+  // téléphone du client). Retourne null si non supporté -> bascule sur le
+  // widget FedaPay classique. (Identique à la logique des pages produit.)
+  function detectFedaPayMode(countryIso, localNumber) {
+    let digits = (localNumber || '').replace(/\D/g, '');
+    if (countryIso === 'bj') {
+      if (digits.startsWith('01')) digits = digits.slice(2);
+      const p2 = Number(digits.slice(0, 2));
+      const MTN = [42, 46, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 62, 66, 67, 69, 90, 91, 96, 97];
+      const MOOV = [45, 60, 63, 64, 65, 68, 94, 95, 98, 99];
+      const SBIN = [40, 41, 43, 44, 47];
+      if (MTN.includes(p2)) return 'mtn_open';
+      if (MOOV.includes(p2)) return 'moov';
+      if (SBIN.includes(p2)) return 'sbin';
+      return null;
+    }
+    if (countryIso === 'tg') {
+      const p2 = Number(digits.slice(0, 2));
+      const TOGOCEL = [70, 71, 72, 73, 90, 91, 92, 93];
+      const MOOV = [78, 79, 96, 97, 98, 99];
+      if (TOGOCEL.includes(p2)) return 'togocel';
+      if (MOOV.includes(p2)) return 'moov_tg';
+      return null;
+    }
+    if (countryIso === 'ci') return digits.slice(0, 2) === '05' ? 'mtn_ci' : null;
+    if (countryIso === 'sn') return digits.slice(0, 2) === '76' ? 'free_sn' : null;
+    return null;
+  }
 
   const togglePwBtn = document.getElementById('togglePw');
   const loginPinInput = document.getElementById('loginPin');
@@ -298,25 +392,194 @@
   }
 
   function renderSubscriptions(subs) {
-    subsList.innerHTML = subs.map((s) => {
+    subsList.innerHTML = subs.map((s, i) => {
       const exp = expiryDisplay(s.expiry);
-      const renewParams = new URLSearchParams({
-        renew: '1',
-        username: s.profileLabel,
-        phone: s.phone,
-        email: s.email || '',
-      });
-      const renewHref = `${s.renewUrl}?${renewParams.toString()}`;
+      const prices = getPrices(s.service);
+      const durationOptions = prices
+        ? [1, 2, 3].map((m, idx) => `<option value="${idx}">${m} mois — ${fmt(prices[idx])} FCFA</option>`).join('')
+        : '<option value="0">Durée indisponible</option>';
+      const firstPrice = prices ? prices[0] : null;
+
       return `
-        <div class="sub-card">
+        <div class="sub-card" data-index="${i}">
           <div class="service">${s.service}</div>
           <div class="row"><span>Profil</span><b>${s.profileLabel}</b></div>
           <div class="row"><span>Code PIN</span><b>${s.pin}</b></div>
           <div class="row"><span>Numéro</span><b>${s.phone}</b></div>
           <div class="row"><span>Expire dans</span><b style="color:${exp.color};">${exp.text}</b></div>
-          <a href="${renewHref}" class="btn-renew">Renouveler</a>
+
+          <div class="renew-block">
+            <div class="renew-duration">
+              <label class="field-label" for="duration-${i}">Durée du renouvellement</label>
+              <select id="duration-${i}" class="renew-duration-select" data-index="${i}" ${!prices ? 'disabled' : ''}>
+                ${durationOptions}
+              </select>
+            </div>
+            <div class="renew-price">
+              <span class="amount" id="renew-amount-${i}">${firstPrice ? fmt(firstPrice) : '—'}</span>
+              <span class="unit">FCFA</span>
+            </div>
+            <button type="button" class="btn-renew" data-index="${i}" ${!prices ? 'disabled' : ''}>Renouveler</button>
+            <div class="renew-banner" id="renew-banner-${i}"></div>
+          </div>
         </div>`;
     }).join('');
+
+    // Mise à jour du prix affiché quand la durée change
+    subsList.querySelectorAll('.renew-duration-select').forEach((select) => {
+      select.addEventListener('change', () => {
+        const i = select.dataset.index;
+        const prices = getPrices(subs[i].service);
+        if (!prices) return;
+        document.getElementById(`renew-amount-${i}`).textContent = fmt(prices[Number(select.value)]);
+      });
+    });
+
+    // Déclenchement du paiement au clic sur "Renouveler"
+    subsList.querySelectorAll('.btn-renew').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.index);
+        const select = document.getElementById(`duration-${i}`);
+        const durationIndex = Number(select.value);
+        renewSubscription(subs[i], durationIndex, i);
+      });
+    });
+  }
+
+  function showBanner(index, type, html) {
+    const banner = document.getElementById(`renew-banner-${index}`);
+    banner.className = 'renew-banner ' + type;
+    banner.innerHTML = html;
+  }
+
+  // Lance le paiement du renouvellement directement depuis la page de
+  // connexion (même logique que les pages produit : FedaPay sans
+  // redirection en priorité, repli sur le widget classique).
+  async function renewSubscription(sub, durationIndex, cardIndex) {
+    const btn = subsList.querySelector(`.btn-renew[data-index="${cardIndex}"]`);
+    const select = document.getElementById(`duration-${cardIndex}`);
+    const prices = getPrices(sub.service);
+    if (!prices) return;
+
+    const durations = [1, 2, 3];
+    const duration = durations[durationIndex];
+    const amount = prices[durationIndex];
+    const { platform, plan } = parseService(sub.service);
+
+    btn.disabled = true;
+    select.disabled = true;
+    btn.textContent = 'Traitement en cours…';
+
+    const reference = generateReference();
+    const items = [{ platform, plan, duration_months: duration, unit_price: amount }];
+
+    const { error: insertError } = await supabaseClient.from('orders').insert({
+      reference,
+      items,
+      total: amount,
+      customer_name: sub.profileLabel,
+      customer_phone: sub.phone,
+      customer_email: sub.email || '',
+      status: 'en_attente',
+    });
+
+    if (insertError) {
+      console.error(insertError);
+      btn.disabled = false;
+      select.disabled = false;
+      btn.textContent = 'Renouveler';
+      showBanner(cardIndex, 'failed', "Impossible de créer la commande. Réessayez ou contactez le support WhatsApp.");
+      return;
+    }
+
+    const { countryIso, localNumber } = splitPhone(sub.phone);
+    const fedaMode = detectFedaPayMode(countryIso, localNumber);
+
+    if (fedaMode) {
+      try {
+        const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/fedapay-direct-init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reference,
+            mode: fedaMode,
+            phone_number: { number: localNumber, country: countryIso },
+          }),
+        });
+        const result = await res.json().catch(() => null);
+        if (res.ok && result?.status === 'sent') {
+          btn.textContent = 'Vérification en cours…';
+          pollRenewalStatus(reference, cardIndex);
+          return;
+        }
+        console.error('FedaPay sans redirection indisponible, bascule sur le widget:', result);
+      } catch (err) {
+        console.error('FedaPay sans redirection (erreur réseau), bascule sur le widget:', err);
+      }
+    }
+
+    FedaPay.init({
+      public_key: CONFIG.FEDAPAY_PUBLIC_KEY,
+      transaction: {
+        amount: amount,
+        description: `${sub.service} — ${duration} mois (${reference})`,
+        custom_metadata: { reference },
+      },
+      customer: {
+        firstname: sub.profileLabel,
+        lastname: sub.profileLabel,
+        email: sub.email || '',
+        phone_number: { number: sub.phone, country: countryIso },
+      },
+      onComplete(resp) {
+        if (resp.reason === FedaPay.CHECKOUT_COMPLETE) {
+          btn.textContent = 'Vérification en cours…';
+          pollRenewalStatus(reference, cardIndex);
+        } else {
+          btn.disabled = false;
+          select.disabled = false;
+          btn.textContent = 'Renouveler';
+        }
+      },
+    }).open();
+  }
+
+  // Interroge Supabase pour connaître le statut réel de la commande (mis à
+  // jour par le webhook FedaPay), puis rafraîchit la session pour afficher
+  // la nouvelle date d'expiration.
+  async function pollRenewalStatus(reference, cardIndex, attempt = 0) {
+    const maxAttempts = 12; // ~36 secondes
+    const btn = subsList.querySelector(`.btn-renew[data-index="${cardIndex}"]`);
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .select('status')
+      .eq('reference', reference)
+      .single();
+
+    if (!error && data) {
+      if (data.status === 'payee') {
+        btn.textContent = 'Renouvelé ✅';
+        showBanner(cardIndex, 'success', 'Paiement reçu — Référence ' + reference + '. Abonnement renouvelé.');
+        const session = loadSession();
+        if (session) attemptLogin(session.username, session.pin, false);
+        return;
+      }
+      if (data.status === 'echouee' || data.status === 'annulee') {
+        btn.disabled = false;
+        document.getElementById(`duration-${cardIndex}`).disabled = false;
+        btn.textContent = 'Renouveler';
+        showBanner(cardIndex, 'failed', 'Paiement non abouti — Référence ' + reference + '. Réessayez ou <a href="https://wa.me/22995265358" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">contactez le support WhatsApp</a>.');
+        return;
+      }
+    }
+
+    if (attempt < maxAttempts) {
+      setTimeout(() => pollRenewalStatus(reference, cardIndex, attempt + 1), 3000);
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'Paiement en cours de confirmation';
+      showBanner(cardIndex, 'pending', 'Référence ' + reference + '. Votre paiement est en cours de confirmation.');
+    }
   }
 
   function showSubscriptions(subs) {
@@ -324,6 +587,9 @@
     subsWrap.style.display = 'block';
     renderSubscriptions(subs);
   }
+
+  const SESSION_KEY = 'avioli-customer-session'; // { username, pin } — reste jusqu'à déconnexion manuelle
+  const CACHE_KEY = 'avioli-customer-subs-cache'; // dernière liste d'abonnements affichée, pour un affichage instantané
 
   function saveSession(username, pin) {
     try { localStorage.setItem(SESSION_KEY, JSON.stringify({ username, pin })); } catch (e) {}
@@ -347,7 +613,8 @@
   // Appelle l'API de connexion ; en cas de succès, met à jour l'affichage
   // et le cache. showLoadingState contrôle si on affiche "Connexion..." sur
   // le bouton (première connexion) ou si on rafraîchit silencieusement en
-  // arrière-plan (session déjà affichée depuis le cache).
+  // arrière-plan (session déjà affichée depuis le cache, ou après un
+  // renouvellement réussi).
   async function attemptLogin(username, pin, showLoadingState) {
     if (showLoadingState) {
       loginBtn.disabled = true;
@@ -369,8 +636,6 @@
           loginBtn.disabled = false;
           loginBtn.textContent = 'Se connecter';
         } else {
-          // Le rafraîchissement silencieux a échoué (session invalide) —
-          // on déconnecte proprement plutôt que de laisser des données obsolètes.
           clearSession();
         }
         return false;
@@ -414,8 +679,6 @@
     loginBtn.textContent = 'Se connecter';
   });
 
-  // Enregistrement du service worker, comme sur le reste du site (permet
-  // l'installation en app et le fonctionnement hors-ligne partiel).
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch((err) => {
@@ -424,10 +687,6 @@
     });
   }
 
-  // Reste connecté tant que le client ne s'est pas déconnecté lui-même :
-  // au chargement, si une session est enregistrée, on affiche d'abord les
-  // données en cache (instantané), puis on rafraîchit en silence auprès du
-  // serveur (au cas où le PIN ou la date d'expiration auraient changé).
   (function restoreSession() {
     const session = loadSession();
     if (!session) return;
