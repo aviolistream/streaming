@@ -179,6 +179,23 @@
   .renew-banner.pending{display:flex; background:rgba(255,49,49,0.08); border:1px solid rgba(255,49,49,0.25); color:var(--muted);}
   .renew-banner.failed{display:flex; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444;}
 
+  .btn-code{
+    display:block; width:100%; margin-top:14px; font-family:var(--font-body); font-weight:700; font-size:0.9rem;
+    padding:11px 20px; border-radius:9px; border:1px solid var(--line); background:var(--surface); color:var(--text);
+    text-align:center; cursor:pointer; transition:transform .15s ease, border-color .15s ease;
+  }
+  .btn-code:hover{border-color:var(--accent); transform:translateY(-2px);}
+  .btn-code:disabled{opacity:.55; cursor:not-allowed; transform:none;}
+  .code-banner{
+    display:none; align-items:center; gap:10px; padding:12px 14px; border-radius:10px;
+    font-size:0.85rem; line-height:1.5; margin-top:12px;
+  }
+  .code-banner.success{display:flex; flex-direction:column; align-items:center; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); color:var(--text);}
+  .code-banner.pending{display:flex; background:rgba(255,49,49,0.08); border:1px solid rgba(255,49,49,0.25); color:var(--muted);}
+  .code-banner.failed{display:flex; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444;}
+  .code-value{font-family:var(--font-mono); font-size:1.4rem; font-weight:700; letter-spacing:0.08em; margin:4px 0 10px;}
+  .code-wa-link{display:inline-block; background:#25D366; color:#fff; font-weight:700; padding:9px 18px; border-radius:8px; font-size:0.85rem;}
+
   .logout-link{display:block; text-align:center; margin-top:24px; color:var(--muted); font-size:0.85rem;}
   .logout-link:hover{color:var(--text);}
 
@@ -422,6 +439,9 @@
             <button type="button" class="btn-renew" data-index="${i}" ${!prices ? 'disabled' : ''}>Renouveler</button>
             <div class="renew-banner" id="renew-banner-${i}"></div>
           </div>
+
+          <button type="button" class="btn-code" data-index="${i}">Recevoir mon code de confirmation</button>
+          <div class="code-banner" id="code-banner-${i}"></div>
         </div>`;
     }).join('');
 
@@ -444,6 +464,66 @@
         renewSubscription(subs[i], durationIndex, i);
       });
     });
+
+    // Déclenchement de la demande de code de connexion
+    subsList.querySelectorAll('.btn-code').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.index);
+        requestLoginCode(subs[i], i);
+      });
+    });
+  }
+
+  function showCodeBanner(index, type, html) {
+    const banner = document.getElementById(`code-banner-${index}`);
+    banner.className = 'code-banner ' + type;
+    banner.innerHTML = html;
+  }
+
+  // Demande à gmail-code-fetch de récupérer le dernier code de connexion
+  // Netflix/Prime reçu sur la boîte mail du compte, et de l'envoyer au
+  // client (email + lien WhatsApp pré-rempli).
+  async function requestLoginCode(sub, cardIndex) {
+    const btn = subsList.querySelector(`.btn-code[data-index="${cardIndex}"]`);
+    if (!sub.accountEmail) {
+      showCodeBanner(cardIndex, 'failed', "Compte non configuré pour cette fonctionnalité — contactez le support.");
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Recherche du code…';
+    showCodeBanner(cardIndex, 'pending', 'Recherche du dernier code reçu…');
+
+    try {
+      const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/gmail-code-fetch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_email: sub.accountEmail,
+          client_name: sub.profileLabel,
+          client_phone: sub.phone,
+          client_email: sub.email,
+          service: sub.service,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+
+      if (res.ok && result?.found) {
+        const waBtn = `<a href="${result.whatsapp_link}" target="_blank" rel="noopener" class="code-wa-link">Envoyer sur WhatsApp</a>`;
+        showCodeBanner(cardIndex, 'success',
+          `<span>Code trouvé${sub.email ? ' (envoyé aussi par email)' : ''} :</span>` +
+          `<span class="code-value">${result.code}</span>` +
+          waBtn
+        );
+      } else {
+        showCodeBanner(cardIndex, 'failed', result?.message || "Aucun code trouvé pour le moment. Réessayez dans une minute.");
+      }
+    } catch (err) {
+      console.error('Erreur récupération code:', err);
+      showCodeBanner(cardIndex, 'failed', "Erreur réseau, réessayez.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Recevoir mon code de confirmation';
+    }
   }
 
   function showBanner(index, type, html) {
