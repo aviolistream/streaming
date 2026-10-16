@@ -194,6 +194,7 @@
   .code-banner.pending{display:flex; background:rgba(255,49,49,0.08); border:1px solid rgba(255,49,49,0.25); color:var(--muted);}
   .code-banner.failed{display:flex; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#ef4444;}
   .code-value{font-family:var(--font-mono); font-size:1.4rem; font-weight:700; letter-spacing:0.08em; margin:4px 0 2px;}
+  .code-link{display:block; width:100%; text-align:center; background:var(--accent); color:#fff; font-weight:700; padding:11px 18px; border-radius:9px; font-size:0.9rem; margin-top:4px;}
 
   .logout-link{display:block; text-align:center; margin-top:24px; color:var(--muted); font-size:0.85rem;}
   .logout-link:hover{color:var(--text);}
@@ -506,7 +507,12 @@
       });
       const result = await res.json().catch(() => null);
 
-      if (res.ok && result?.found) {
+      if (res.ok && result?.found && result.type === 'link' && /^https:\/\//.test(result.approve_link || '')) {
+        showCodeBanner(cardIndex, 'success',
+          `<span>Netflix demande de confirmer la connexion. Cliquez ci-dessous :</span>` +
+          `<a class="code-link" href="${result.approve_link}" target="_blank" rel="noopener noreferrer">Approuver l'identification</a>`
+        );
+      } else if (res.ok && result?.found && result.code) {
         showCodeBanner(cardIndex, 'success',
           `<span>Voici votre code de connexion ${parseService(sub.service).platform} :</span>` +
           `<span class="code-value">${result.code}</span>`
