@@ -518,10 +518,12 @@
           `<span class="code-value">${result.code}</span>`
         );
       } else {
-        const busyMsg = result?.busy
-          ? `Un autre client vient de se connecter. Réessayez dans ${result.wait_minutes || 'quelques'} min.`
-          : null;
-        showCodeBanner(cardIndex, 'failed', busyMsg || result?.message || "Aucun code trouvé pour le moment. Réessayez dans une minute.");
+        // Aucun code disponible pour ce client (aucun mail, ou mail réservé par un autre client)
+        const noCode = result?.busy || !result?.message || /^Aucun/.test(result.message);
+        const msg = noCode
+          ? `Aucun code reçu. Connectez-vous à ${parseService(sub.service).platform}, puis réessayez.`
+          : result.message;
+        showCodeBanner(cardIndex, 'failed', msg);
       }
     } catch (err) {
       console.error('Erreur récupération code:', err);
