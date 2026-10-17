@@ -233,7 +233,7 @@
     <!-- Formulaire de connexion -->
     <div class="login-card" id="loginCard">
       <h1>Mon abonnement</h1>
-      <p class="sub">Connectez-vous avec votre nom d'utilisateur pour voir votre abonnement et le renouveler.</p>
+      <p class="sub">Connectez-vous pour renouveler votre abonnement ou recevoir un code</p>
 
       <div class="login-error" id="loginError">Nom d'utilisateur ou code PIN incorrect.</div>
 
@@ -518,7 +518,10 @@
           `<span class="code-value">${result.code}</span>`
         );
       } else {
-        showCodeBanner(cardIndex, 'failed', result?.message || "Aucun code trouvé pour le moment. Réessayez dans une minute.");
+        const busyMsg = result?.busy
+          ? `Un autre client vient de se connecter. Réessayez dans ${result.wait_minutes || 'quelques'} min.`
+          : null;
+        showCodeBanner(cardIndex, 'failed', busyMsg || result?.message || "Aucun code trouvé pour le moment. Réessayez dans une minute.");
       }
     } catch (err) {
       console.error('Erreur récupération code:', err);
