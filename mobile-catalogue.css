@@ -3,7 +3,7 @@
 @media (max-width:640px){
 
   /* Catalogue plus large : on réduit les marges autour des cartes */
-  #catalogue.section{padding-left:10px; padding-right:10px;}
+  #catalogue.section{padding-left:14px; padding-right:14px;}
   #catalogue .wrap{padding-left:0; padding-right:0;}
 
   /* Deux cartes côte à côte (la carte Global reste dans une demi-colonne, même taille que les autres) */
