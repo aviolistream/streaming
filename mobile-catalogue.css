@@ -1,0 +1,28 @@
+/* AvioliStream — catalogue version mobile uniquement (écrans de 640 px et moins).
+   Le desktop n'est pas touché. */
+@media (max-width:640px){
+
+  /* Deux cartes côte à côte (la carte Global prend toute la largeur) */
+  .grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px;}
+  .card.global{grid-column:1 / -1;}
+
+  /* Cartes plus compactes (les logos ne sont pas modifiés) */
+  .card{padding:14px; gap:10px;}
+  .card h3{font-size:1rem;}
+  .card .desc{font-size:0.78rem; min-height:0;}
+
+  /* Texte court : "1 écran, 4K UHD." à la place de "1 écran, qualité 4K UHD." */
+  .card:not(.global) .desc-mobile{font-size:0; line-height:0;}
+  .card:not(.global) .desc-mobile::after{
+    content:"1 écran, 4K UHD.";
+    font-size:0.78rem; line-height:1.5;
+  }
+
+  /* Prix : on retire "à partir de" */
+  .price-line .from{display:none;}
+  .price-line .amount{font-size:1.1rem;}
+  .price-line .unit{font-size:0.68rem;}
+
+  /* Lien "Voir la formule" plus discret */
+  .card-cta{font-size:0.8rem; padding-top:10px;}
+}
