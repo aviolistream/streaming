@@ -2,12 +2,16 @@
    Le desktop n'est pas touché. */
 @media (max-width:640px){
 
+  /* Catalogue plus large : on réduit les marges autour des cartes */
+  #catalogue.section{padding-left:10px; padding-right:10px;}
+  #catalogue .wrap{padding-left:0; padding-right:0;}
+
   /* Deux cartes côte à côte (la carte Global prend toute la largeur) */
-  .grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px;}
+  .grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px;}
   .card.global{grid-column:1 / -1;}
 
-  /* Cartes plus compactes (les logos ne sont pas modifiés) */
-  .card{padding:14px; gap:10px;}
+  /* Cartes compactes (les logos ne sont pas modifiés) */
+  .card{padding:14px 12px; gap:10px;}
   .card h3{font-size:1rem;}
   .card .desc{font-size:0.78rem; min-height:0;}
 
@@ -18,10 +22,11 @@
     font-size:0.78rem; line-height:1.5;
   }
 
-  /* Prix : on retire "à partir de" */
+  /* Prix sur une seule ligne, alignés en bas de chaque carte */
   .price-line .from{display:none;}
+  .price-line{flex-wrap:nowrap; white-space:nowrap; gap:4px; align-items:baseline;}
   .price-line .amount{font-size:1.1rem;}
-  .price-line .unit{font-size:0.68rem;}
+  .price-line .unit{font-size:0.66rem;}
 
   /* Lien "Voir la formule" plus discret */
   .card-cta{font-size:0.8rem; padding-top:10px;}
