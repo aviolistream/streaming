@@ -6,9 +6,8 @@
   #catalogue.section{padding-left:10px; padding-right:10px;}
   #catalogue .wrap{padding-left:0; padding-right:0;}
 
-  /* Deux cartes côte à côte (la carte Global prend toute la largeur) */
+  /* Deux cartes côte à côte (la carte Global reste dans une demi-colonne, même taille que les autres) */
   .grid{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px;}
-  .card.global{grid-column:1 / -1;}
 
   /* Cartes compactes (les logos ne sont pas modifiés) */
   .card{padding:14px 12px; gap:10px;}
@@ -19,6 +18,13 @@
   .card:not(.global) .desc-mobile{font-size:0; line-height:0;}
   .card:not(.global) .desc-mobile::after{
     content:"1 écran, 4K UHD.";
+    font-size:0.78rem; line-height:1.5;
+  }
+
+  /* Carte Global : "1 écran, tout catalogue" à la place de "1 écran, accès catalogue international." */
+  .card.global .desc{font-size:0; line-height:0;}
+  .card.global .desc::after{
+    content:"1 écran, tout catalogue";
     font-size:0.78rem; line-height:1.5;
   }
 
