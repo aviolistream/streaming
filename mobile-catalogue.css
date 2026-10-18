@@ -40,7 +40,7 @@
 
 /* Netflix Standard : indisponible (desktop + mobile) */
 a.card[href="/netflix-standard"]{
-  pointer-events:none; cursor:default; opacity:.55;
+  pointer-events:none; cursor:default;
 }
 a.card[href="/netflix-standard"] .card-cta{font-size:0; color:var(--muted);}
 a.card[href="/netflix-standard"] .card-cta::before{
