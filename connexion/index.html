@@ -507,6 +507,16 @@
       });
       const result = await res.json().catch(() => null);
 
+      // Accès retiré (client vidé du gestionnaire) : on déconnecte et on revient à l'écran de connexion
+      if (result?.unauthorized) {
+        clearSession();
+        subsWrap.style.display = 'none';
+        loginCard.style.display = 'block';
+        loginError.textContent = "Votre accès n'est plus actif. Connectez-vous de nouveau ou contactez le support.";
+        loginError.style.display = 'block';
+        return;
+      }
+
       if (res.ok && result?.found && result.type === 'link' && /^https:\/\//.test(result.approve_link || '')) {
         showCodeBanner(cardIndex, 'success',
           `<span>Netflix demande de confirmer la connexion. Cliquez ci-dessous :</span>` +
@@ -723,8 +733,11 @@
           loginError.style.display = 'block';
           loginBtn.disabled = false;
           loginBtn.textContent = 'Se connecter';
-        } else {
+        } else if (res.status === 401) {
+          // Session enregistrée devenue invalide (profil vidé, PIN changé...) : retour à l'écran de connexion
           clearSession();
+          subsWrap.style.display = 'none';
+          loginCard.style.display = 'block';
         }
         return false;
       }
