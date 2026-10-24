@@ -196,6 +196,14 @@
   .code-value{font-family:var(--font-mono); font-size:1.4rem; font-weight:700; letter-spacing:0.08em; margin:4px 0 2px;}
   .code-link{display:block; width:100%; text-align:center; background:var(--accent); color:#fff; font-weight:700; padding:11px 18px; border-radius:9px; font-size:0.9rem; margin-top:4px;}
 
+  /* Décompte sous le code (90 s Prime Video, 10 min Netflix) */
+  .code-timer{font-family:var(--font-mono); font-size:0.82rem; color:var(--muted); margin-top:2px; text-align:center;}
+  .code-timer.warn{color:#ef4444; font-weight:700;}
+  .code-timer.expired{font-family:var(--font-body); color:var(--muted); font-weight:600; line-height:1.5;}
+  .code-banner.success.expired{background:rgba(120,125,135,0.12); border-color:var(--line);}
+  .code-banner.expired .code-value{text-decoration:line-through; opacity:.4;}
+  .code-banner.expired .code-link{opacity:.4; pointer-events:none;}
+
   .logout-link{display:block; text-align:center; margin-top:24px; color:var(--muted); font-size:0.85rem;}
   .logout-link:hover{color:var(--text);}
 
@@ -233,7 +241,7 @@
     <!-- Formulaire de connexion -->
     <div class="login-card" id="loginCard">
       <h1>Mon abonnement</h1>
-      <p class="sub">Connectez-vous pour renouveler votre abonnement ou recevoir un code</p>
+      <p class="sub">Connectez-vous pour renouveler votre abonnement ou recevoir votre code</p>
 
       <div class="login-error" id="loginError">Nom d'utilisateur ou code PIN incorrect.</div>
 
@@ -312,6 +320,9 @@
     FEDAPAY_PUBLIC_KEY: 'pk_live_l4fvqleIIYNQEtkrIbV1GQoc',
   };
   const supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+  // Durée de validité d'un code de connexion (secondes), pour le décompte affiché au client
+  const CODE_VALIDITY_SECONDS = { 'Netflix': 600, 'Prime Video': 90 };
 
   // Grille de prix par formule — 1 / 2 / 3 mois (FCFA)
   const PRICE_TABLE = {
@@ -408,7 +419,53 @@
     return { text: `${daysLeft} jour(s)`, color: '#22c55e' };
   }
 
+  // Décomptes en cours (un par carte d'abonnement)
+  const codeTimers = {};
+
+  function stopCodeCountdown(cardIndex) {
+    if (codeTimers[cardIndex]) {
+      clearInterval(codeTimers[cardIndex]);
+      delete codeTimers[cardIndex];
+    }
+  }
+
+  function stopAllCountdowns() {
+    Object.keys(codeTimers).forEach((k) => stopCodeCountdown(k));
+  }
+
+  function formatCountdown(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  // Lance le décompte sous le code. remainingSec = secondes de validité restantes.
+  function startCodeCountdown(cardIndex, remainingSec, platform) {
+    stopCodeCountdown(cardIndex);
+    const banner = document.getElementById(`code-banner-${cardIndex}`);
+    if (!banner) return;
+    const timerEl = banner.querySelector('.code-timer');
+    if (!timerEl) return;
+    const endAt = Date.now() + remainingSec * 1000;
+
+    function tick() {
+      const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      if (left <= 0) {
+        stopCodeCountdown(cardIndex);
+        banner.classList.add('expired');
+        timerEl.className = 'code-timer expired';
+        timerEl.textContent = `Code expiré. Relancez la connexion sur ${platform}, puis cliquez de nouveau sur le bouton.`;
+        return;
+      }
+      timerEl.className = 'code-timer' + (left <= 15 ? ' warn' : '');
+      timerEl.textContent = `Expire dans ${formatCountdown(left)}`;
+    }
+    tick();
+    codeTimers[cardIndex] = setInterval(tick, 1000);
+  }
+
   function renderSubscriptions(subs) {
+    stopAllCountdowns();
     subsList.innerHTML = subs.map((s, i) => {
       const exp = expiryDisplay(s.expiry);
       const prices = getPrices(s.service);
@@ -489,6 +546,7 @@
       showCodeBanner(cardIndex, 'failed', "Compte non configuré pour cette fonctionnalité — contactez le support.");
       return;
     }
+    stopCodeCountdown(cardIndex);
     btn.disabled = true;
     btn.textContent = 'Recherche du code…';
     showCodeBanner(cardIndex, 'pending', 'Recherche du dernier code reçu…');
@@ -510,6 +568,7 @@
       // Accès retiré (client vidé du gestionnaire) : on déconnecte et on revient à l'écran de connexion
       if (result?.unauthorized) {
         clearSession();
+        stopAllCountdowns();
         subsWrap.style.display = 'none';
         loginCard.style.display = 'block';
         loginError.textContent = "Votre accès n'est plus actif. Connectez-vous de nouveau ou contactez le support.";
@@ -517,21 +576,35 @@
         return;
       }
 
-      if (res.ok && result?.found && result.type === 'link' && /^https:\/\//.test(result.approve_link || '')) {
+      const platform = parseService(sub.service).platform;
+      const totalSec = CODE_VALIDITY_SECONDS[platform];
+      // Secondes de validité restantes = durée totale - ancienneté du mail dans Gmail
+      const remainingSec = totalSec - (Number(result?.age_seconds) || 0);
+
+      if (res.ok && result?.found && (result.type === 'link' || result.code) && remainingSec <= 0) {
+        // Le mail trouvé est déjà expiré : inutile d'afficher un code mort
+        showCodeBanner(cardIndex, 'failed',
+          `Le dernier code reçu est expiré. Relancez la connexion sur ${platform}, puis cliquez de nouveau sur le bouton.`
+        );
+      } else if (res.ok && result?.found && result.type === 'link' && /^https:\/\//.test(result.approve_link || '')) {
         showCodeBanner(cardIndex, 'success',
           `<span>Netflix demande de confirmer la connexion. Cliquez ci-dessous :</span>` +
-          `<a class="code-link" href="${result.approve_link}" target="_blank" rel="noopener noreferrer">Approuver l'identification</a>`
+          `<a class="code-link" href="${result.approve_link}" target="_blank" rel="noopener noreferrer">Approuver l'identification</a>` +
+          `<span class="code-timer"></span>`
         );
+        startCodeCountdown(cardIndex, remainingSec, platform);
       } else if (res.ok && result?.found && result.code) {
         showCodeBanner(cardIndex, 'success',
-          `<span>Voici votre code de connexion ${parseService(sub.service).platform} :</span>` +
-          `<span class="code-value">${result.code}</span>`
+          `<span>Voici votre code de connexion ${platform} :</span>` +
+          `<span class="code-value">${result.code}</span>` +
+          `<span class="code-timer"></span>`
         );
+        startCodeCountdown(cardIndex, remainingSec, platform);
       } else {
         // Aucun code disponible pour ce client (aucun mail, ou mail réservé par un autre client)
         const noCode = result?.busy || !result?.message || /^Aucun/.test(result.message);
         const msg = noCode
-          ? `Aucun code reçu. Connectez-vous à ${parseService(sub.service).platform}, puis réessayez.`
+          ? `Aucun code reçu. Connectez-vous à ${platform}, puis réessayez.`
           : result.message;
         showCodeBanner(cardIndex, 'failed', msg);
       }
@@ -736,6 +809,7 @@
         } else if (res.status === 401) {
           // Session enregistrée devenue invalide (profil vidé, PIN changé...) : retour à l'écran de connexion
           clearSession();
+          stopAllCountdowns();
           subsWrap.style.display = 'none';
           loginCard.style.display = 'block';
         }
@@ -773,6 +847,7 @@
   document.getElementById('logoutLink').addEventListener('click', (e) => {
     e.preventDefault();
     clearSession();
+    stopAllCountdowns();
     subsWrap.style.display = 'none';
     loginCard.style.display = 'block';
     document.getElementById('loginForm').reset();
