@@ -587,9 +587,15 @@
           `Le dernier code reçu est expiré. Relancez la connexion sur ${platform}, puis cliquez de nouveau sur le bouton.`
         );
       } else if (res.ok && result?.found && result.type === 'link' && /^https:\/\//.test(result.approve_link || '')) {
+        // Deux types de mails Netflix : "Approuver l'identification" ou "Votre code d'accès temporaire" (bouton Obtenir le code)
+        const isTempCode = result.link_kind === 'code';
+        const linkIntro = isTempCode
+          ? "Netflix a préparé votre code d'accès temporaire. Cliquez ci-dessous pour l'afficher :"
+          : 'Netflix demande de confirmer la connexion. Cliquez ci-dessous :';
+        const linkLabel = isTempCode ? 'Obtenir le code' : "Approuver l'identification";
         showCodeBanner(cardIndex, 'success',
-          `<span>Netflix demande de confirmer la connexion. Cliquez ci-dessous :</span>` +
-          `<a class="code-link" href="${result.approve_link}" target="_blank" rel="noopener noreferrer">Approuver l'identification</a>` +
+          `<span>${linkIntro}</span>` +
+          `<a class="code-link" href="${result.approve_link}" target="_blank" rel="noopener noreferrer">${linkLabel}</a>` +
           `<span class="code-timer"></span>`
         );
         startCodeCountdown(cardIndex, remainingSec, platform);
@@ -872,5 +878,6 @@
   })();
 </script>
 
+<script src="/ios-install-hint.js" defer></script>
 </body>
 </html>
