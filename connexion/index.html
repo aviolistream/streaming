@@ -497,7 +497,7 @@
             <div class="renew-banner" id="renew-banner-${i}"></div>
           </div>
 
-          <button type="button" class="btn-code" data-index="${i}">Recevoir mon code de confirmation</button>
+          <button type="button" class="btn-code" data-index="${i}">Obtenir le code</button>
           <div class="code-banner" id="code-banner-${i}"></div>
         </div>`;
     }).join('');
@@ -592,7 +592,7 @@
         const linkIntro = isTempCode
           ? "Netflix a préparé votre code d'accès temporaire. Cliquez ci-dessous pour l'afficher :"
           : 'Netflix demande de confirmer la connexion. Cliquez ci-dessous :';
-        const linkLabel = isTempCode ? 'Obtenir le code' : "Approuver l'identification";
+        const linkLabel = isTempCode ? 'Afficher mon code' : "Approuver l'identification";
         showCodeBanner(cardIndex, 'success',
           `<span>${linkIntro}</span>` +
           `<a class="code-link" href="${result.approve_link}" target="_blank" rel="noopener noreferrer">${linkLabel}</a>` +
@@ -619,7 +619,7 @@
       showCodeBanner(cardIndex, 'failed', "Erreur réseau, réessayez.");
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Recevoir mon code de confirmation';
+      btn.textContent = 'Obtenir le code';
     }
   }
 
