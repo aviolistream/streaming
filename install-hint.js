@@ -57,7 +57,7 @@
       'font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;animation:ihUp .35s ease both}' +
       '@keyframes ihUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}' +
       '#ih-box .ih-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}' +
-      '#ih-box img{width:60px;height:60px;border-radius:12px;background:#fff;flex:none}' +
+      '#ih-box img{width:44px;height:44px;border-radius:12px;background:#fff;flex:none}' +
       '#ih-box .ih-t{font-family:Sora,Inter,system-ui,sans-serif;font-weight:700;font-size:16px;line-height:1.25}' +
             '#ih-box ol{margin:8px 0 12px;padding-left:20px;font-size:14px;line-height:1.5;color:#e6ecef}' +
       '#ih-box li{margin:3px 0}' +
@@ -78,7 +78,7 @@
 
   function header(title) {
     return '<button id="ih-x" aria-label="Fermer">\u00d7</button>' +
-      '<div class="ih-top"><img class="ih-logo" alt="" width="60" height="60">' +
+      '<div class="ih-top"><img class="ih-logo" alt="" width="44" height="44">' +
       '<div class="ih-t">' + title + '</div></div>';
   }
 
