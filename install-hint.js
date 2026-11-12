@@ -79,7 +79,7 @@
 
   function header(title, sub) {
     return '<button id="ih-x" aria-label="Fermer">\u00d7</button>' +
-      '<div class="ih-top"><img src="/icon-192.png" alt="" onerror="this.style.display=\'none\'">' +
+      '<div class="ih-top"><img src="/icons/apple-touch-icon.png" alt="" onerror="this.style.display=\'none\'">' +
       '<div><div class="ih-t">' + title + '</div><div class="ih-s">' + sub + '</div></div></div>';
   }
 
