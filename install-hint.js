@@ -59,8 +59,7 @@
       '#ih-box .ih-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}' +
       '#ih-box img{width:44px;height:44px;border-radius:10px;background:#fff;flex:none}' +
       '#ih-box .ih-t{font-family:Sora,Inter,system-ui,sans-serif;font-weight:700;font-size:16px;line-height:1.25}' +
-      '#ih-box .ih-s{font-size:13px;color:#b8c2c8;margin-top:2px}' +
-      '#ih-box ol{margin:8px 0 12px;padding-left:20px;font-size:14px;line-height:1.5;color:#e6ecef}' +
+            '#ih-box ol{margin:8px 0 12px;padding-left:20px;font-size:14px;line-height:1.5;color:#e6ecef}' +
       '#ih-box li{margin:3px 0}' +
       '#ih-box p{margin:6px 0 12px;font-size:14px;line-height:1.5;color:#e6ecef}' +
       '#ih-box .ih-row{display:flex;gap:10px}' +
@@ -77,35 +76,47 @@
     shown = false;
   }
 
-  function header(title, sub) {
+  function header(title) {
     return '<button id="ih-x" aria-label="Fermer">\u00d7</button>' +
-      '<div class="ih-top"><img src="/icons/apple-touch-icon.png" alt="" onerror="this.style.display=\'none\'">' +
-      '<div><div class="ih-t">' + title + '</div><div class="ih-s">' + sub + '</div></div></div>';
+      '<div class="ih-top"><img class="ih-logo" alt="" width="44" height="44">' +
+      '<div class="ih-t">' + title + '</div></div>';
+  }
+
+  var LOGOS = ['/icons/apple-touch-icon.png', '/icon-192.png', '/icons/icon-192.png', '/icons/icon-192x192.png', '/apple-touch-icon.png'];
+  function loadLogo() {
+    var img = box && box.querySelector('.ih-logo');
+    if (!img) return;
+    var i = 0;
+    img.onerror = function () {
+      i++;
+      if (i < LOGOS.length) { img.src = LOGOS[i]; } else { img.style.display = 'none'; }
+    };
+    img.src = LOGOS[0];
   }
 
   function html() {
     var h;
     if (inApp) {
       var nav = isIOS ? 'Safari' : 'Chrome';
-      h = header('Ouvrir dans ' + nav, 'Pour installer l\u2019application') +
+      h = header('Ouvrir dans ' + nav) +
         '<p>Appuyez sur les <b>\u22ef</b> ou <b>\u22ee</b> en haut ou en bas de l\u2019\u00e9cran, puis sur <b>\u00ab Ouvrir dans ' + nav + ' \u00bb</b>.</p>' +
         '<div class="ih-row"><button class="ih-alt" data-a="later">Compris</button></div>';
     } else if (isIOS && iosOtherBrowser) {
-      h = header('Ouvrir dans Safari', 'Pour installer l\u2019application') +
+      h = header('Ouvrir dans Safari') +
         '<p>Sur iPhone, l\u2019installation se fait depuis <b>Safari</b>. Copiez ce lien et ouvrez-le dans Safari.</p>' +
         '<div class="ih-row"><button class="ih-alt" data-a="later">Compris</button></div>';
     } else if (isIOS) {
-      h = header('Installer AvioliStream', 'Acc\u00e8s direct depuis votre \u00e9cran d\u2019accueil') +
+      h = header('Installer AvioliStream App') +
         '<ol><li>Appuyez sur <b>Partager</b> (le carr\u00e9 avec une fl\u00e8che \u2B06\uFE0F)</li>' +
         '<li>Choisissez <b>\u00ab Sur l\u2019\u00e9cran d\u2019accueil \u00bb</b></li>' +
         '<li>Appuyez sur <b>Ajouter</b></li></ol>' +
         '<div class="ih-row"><button class="ih-alt" data-a="later">Plus tard</button></div>';
     } else if (deferred) {
-      h = header('Installer AvioliStream', 'Acc\u00e8s direct, comme une vraie application') +
+      h = header('Installer AvioliStream App') +
         '<div class="ih-row"><button class="ih-alt" data-a="later">Plus tard</button>' +
         '<button class="ih-main" data-a="install">Installer</button></div>';
     } else {
-      h = header('Installer AvioliStream', 'Acc\u00e8s direct depuis votre \u00e9cran d\u2019accueil') +
+      h = header('Installer AvioliStream App') +
         '<ol><li>Ouvrez le menu <b>\u22ee</b> de votre navigateur</li>' +
         '<li>Appuyez sur <b>\u00ab Installer l\u2019application \u00bb</b> ou <b>\u00ab Ajouter \u00e0 l\u2019\u00e9cran d\u2019accueil \u00bb</b></li></ol>' +
         '<div class="ih-row"><button class="ih-alt" data-a="later">Plus tard</button></div>';
@@ -136,6 +147,7 @@
       });
     }
     box.innerHTML = html();
+    loadLogo();
     shown = true;
   }
 
