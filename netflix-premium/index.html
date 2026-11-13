@@ -547,7 +547,8 @@
     const whatsappRaw = document.getElementById('whatsapp').value.trim();
     const opt = durationSelect.options[durationSelect.selectedIndex];
     const duration = opt.value;
-    const amount = Number(opt.dataset.price);
+    const promo = window.avioliPromo ? window.avioliPromo.current() : null;
+    const amount = promo ? promo.total : Number(opt.dataset.price);
 
     if (!firstName || !whatsappRaw || !customerEmail) return;
 
@@ -571,11 +572,16 @@
       customer_phone: phone,
       customer_email: customerEmail,
       status: 'en_attente',
+      promo_code: promo ? promo.code : null,
     });
 
-    if (insertError) {
+        if (insertError) {
       console.error(insertError);
       setFormBusy(false);
+      if (promo && /promo_/.test(insertError.message || '')) {
+        window.avioliPromo.invalidate();
+        return;
+      }
       alert("Impossible de créer la commande pour le moment. Réessaie dans un instant ou contacte le support WhatsApp.");
       return;
     }
@@ -730,6 +736,6 @@
     }
   })();
 </script>
-
+<script src="/promo.js" data-platform="Netflix" data-plan="Premium" defer></script>
 </body>
 </html>
