@@ -53,7 +53,7 @@
     '<div>' +
     '<label class="field-label" for="promoCode">Code promo <span style="font-weight:400;">(facultatif)</span></label>' +
     '<div class="promo-row">' +
-    '<input type="text" id="promoCode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="30">' +
+    '<input type="text" id="promoCode" placeholder="Code promo" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="30">' +
     '<button type="button" class="btn-promo" id="promoApply">Appliquer</button>' +
     '</div>' +
     '<div class="promo-msg" id="promoMsg" style="display:none;" role="status"></div>' +
